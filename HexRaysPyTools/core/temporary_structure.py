@@ -58,7 +58,7 @@ def get_type_size(type):
     sid = idc.get_struc_id(type)
     if sid != idc.BADADDR:
         return idc.get_struc_size(sid)
-        
+
     try:
         name, tp, fld = idc.parse_decl(type, 1)
         if tp:
@@ -91,7 +91,7 @@ def score_table(type, offset):
     #
     # it might be good to weight how many other vars are disabled depending
     # on which choice is made -- though a struct would hide a lot of variables
-    # (and we would still want the struct) -- we wouldn't necessarily want a 
+    # (and we would still want the struct) -- we wouldn't necessarily want a
     # QWORD if there were 4 x WORDS that wanted to fill up the space
     #
     # we should also prioritise reads over writes (that is to say, structs are
@@ -105,14 +105,14 @@ def score_table(type, offset):
     #
     # shouldn't really trust the sizes in function definitions if they are default types.
     #
-    # in terms of whether the var is signed or not, that can often be hard to 
+    # in terms of whether the var is signed or not, that can often be hard to
     # tell even when analysing by hand.
     #
     # and a vauge note that in my own struct maker, i found it easiest to assume QWORD
     # first, then just keep going to smaller types as warranted.  it was just a clearer
     # process that usually worked well.  you'll note that smaller types are preferred here
     # too.
-    
+
     if alignment == 0: # 8
         if size in (8, 4, 2, 1):
             score += 8 // size
@@ -524,7 +524,7 @@ class Member(AbstractMember):
 
     def get_udt_member(self, array_size=0, offset=0):
         udt_member = idaapi.udt_member_t()
-        udt_member.name = "{}_{:x}".format(get_operand_size_type(self.tinfo), 
+        udt_member.name = "{}_{:x}".format(get_operand_size_type(self.tinfo),
                 self.offset - offset) if re.match(r'(byte|(d|q|t|dq|)word|float|(d|dd)ouble)_', self.name) else self.name
         udt_member.type = self.tinfo
         if array_size:
@@ -921,21 +921,12 @@ class TemporaryStructureModel(QtCore.QAbstractTableModel):
 
     def load_struct(self):
 
-        name = ""
-        while True:
-            name = idaapi.ask_str(name, idaapi.HIST_TYPE, "Enter type:")
-            if name is None:
-                return
-            sid = idc.get_struc_id(name)
-            if sid != idc.BADADDR:
-                break
-
-        self.default_name = name
-
-        sid = idc.get_struc_id(name)
-        if sid == idc.BADADDR:
-            print(("Invalid Struct Name: %s" % name))
+        struct = idaapi.choose_struc("Select Structure")
+        if struct is None:
             return
+        sid = struct.id
+        name = idaapi.get_struc_name(sid)
+        self.default_name = name
 
         tif = get_tinfo(name)
         sys.modules["__main__"].tif = tif
