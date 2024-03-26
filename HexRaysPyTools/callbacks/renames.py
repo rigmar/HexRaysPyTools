@@ -77,7 +77,7 @@ class RenameOther(actions.HexRaysPopupAction):
 
 class RenameInside(actions.HexRaysPopupAction):
     description = "Rename inside argument"
-    hotkey = "Shift+N"
+    hotkey = "Shift+Alt+N"
 
     def __init__(self):
         super(RenameInside, self).__init__()
@@ -161,7 +161,7 @@ class RenameOutside(actions.HexRaysPopupAction):
 
 class RenameMemberFromFunctionName(actions.HexRaysPopupAction):
     description = "Take name from function"
-    hotkey = "Ctrl+N"
+    hotkey = "Ctrl+Alt+N"
 
     def __init__(self):
         super(RenameMemberFromFunctionName, self).__init__()
@@ -183,7 +183,7 @@ class RenameMemberFromFunctionName(actions.HexRaysPopupAction):
             if not helper.change_member_name(sname, info.offset, mname):
                 mname = mname + '_' + hex(info.offset)[2:]
                 helper.change_member_name(sname, info.offset, mname)
-            
+
             hx_view.refresh_view(True)
 
     @staticmethod
