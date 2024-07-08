@@ -89,3 +89,4 @@ if get_config().get_opt("Main plugins UI forms", "ShowGraph"):
     actions.action_manager.register(ShowGraph())
 if get_config().get_opt("Main plugins UI forms", "ShowGraph"):
     actions.action_manager.register(ShowGraph())
+actions.action_manager.register(ShowStructureBuilder())	
