@@ -26,14 +26,7 @@ def log2(v):
     return r
 
 def get_ptr_width():
-    info = idaapi.get_inf_structure()
-    if info.is_64bit():
-        width = 8
-    elif info.is_32bit():
-        width = 4
-    else:
-        width = 2
-    return width
+    return const.EA_SIZE
 
 def get_operand_size_type(tif):
     if tif.is_complex():
@@ -399,7 +392,8 @@ class VirtualTable(AbstractMember):
 
         if ordinal:
             print("[Info] Virtual table " + self.vtable_name + " added to Local Types")
-            return idaapi.import_type(idaapi.cvar.idati, -1, self.vtable_name)
+            # return idc.import_type(idaapi.cvar.idati, -1, self.vtable_name)
+            return helper.import_type(self.vtable_name)
         else:
             print("[Error] Failed to create virtual table " + self.vtable_name)
             print("*" * 100)
@@ -675,7 +669,8 @@ class TemporaryStructureModel(QtCore.QAbstractTableModel):
         # similar to the function below set_decl but allows us to apply more than one struct in a single call
         ret_val = idc.parse_decls(cdecls)
         if ret_val == 0:
-            tid = idaapi.import_type(idaapi.cvar.idati, -1, base_struct_name)
+            # tid = idc.import_type(idaapi.cvar.idati, -1, base_struct_name)
+            tid = helper.import_type(base_struct_name)
             if tid:
                 print(f"[Info] New type \"{base_struct_name}\" was added to Local Types")
                 tinfo = idaapi.create_typedef(base_struct_name)
@@ -709,7 +704,8 @@ class TemporaryStructureModel(QtCore.QAbstractTableModel):
                 ordinal = idaapi.idc_set_local_type(-1, cdecl, idaapi.PT_TYP)
             # TODO: save comments
             if ordinal:
-                tid = idaapi.import_type(idaapi.cvar.idati, -1, structure_name)
+                # tid = idc.import_type(idaapi.cvar.idati, -1, structure_name)
+                tid = helper.import_type(structure_name)
                 if tid:
                     print(f"[Info] New type \"{structure_name}\" was added to Local Types")
                     tinfo = idaapi.create_typedef(structure_name)

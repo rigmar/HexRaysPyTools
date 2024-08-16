@@ -22,7 +22,7 @@ STORE_XREFS = True
 SCAN_ANY_TYPE = False
 
 TEMPLATED_TYPES_FILE = os.path.join(
-                ida_diskio.get_user_idadir(), 'plugins', 'HexRaysPyTools', 'types', 'templated_types.toml')
+                os.path.dirname(__file__), 'types', 'templated_types.toml')
 
 
 def add_default_settings(config):

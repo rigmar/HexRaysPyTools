@@ -2,6 +2,7 @@ import ctypes
 import sys
 
 import idaapi
+import idc
 
 from . import const
 import HexRaysPyTools.forms as forms
@@ -68,6 +69,6 @@ def choose_til():
 def import_type(library, name):
     if library.name != idaapi.cvar.idati.name:
         last_ordinal = idaapi.get_ordinal_qty(idaapi.cvar.idati)
-        type_id = idaapi.import_type(library, -1, name)  # tid_t
+        type_id = idc.import_type(library, -1, name)  # tid_t
         if type_id != idaapi.BADORD:
             return last_ordinal

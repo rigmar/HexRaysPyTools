@@ -3,6 +3,11 @@ import idaapi
 EA64 = None
 EA_SIZE = None
 
+INF_IS_64BIT = None
+INF_IS_32BIT = None
+INF_IS_BE = None
+INF_PROCNAME = None
+
 COT_ARITHMETIC = (idaapi.cot_num, idaapi.cot_fnum, idaapi.cot_add, idaapi.cot_fadd, idaapi.cot_sub, idaapi.cot_fsub,
                   idaapi.cot_mul, idaapi.cot_fmul, idaapi.cot_fdiv)
 
@@ -33,8 +38,45 @@ def init():
         PX_WORD_TINFO, DUMMY_FUNC, CONST_PCHAR_TINFO, CHAR_TINFO, PCHAR_TINFO, CONST_VOID_TINFO, \
         WORD_TINFO, PWORD_TINFO, EA64, EA_SIZE
 
-    EA64 = idaapi.get_inf_structure().is_64bit()
-    EA_SIZE = 8 if EA64 else 4
+    if hasattr(idaapi, 'get_inf_structure'):
+        info = idaapi.get_inf_structure()
+        try:
+            cpuname = info.procname.lower()
+        except:
+            cpuname = info.procName.lower()
+        try:
+            # since IDA7 beta 3 (170724) renamed inf.mf -> is_be()/set_be()
+            is_be = idaapi.cvar.inf.is_be()
+        except:
+            # older IDA versions
+            is_be = idaapi.cvar.inf.mf
+        is_64bit = info.is_64bit()
+        is_32bit = info.is_32bit()
+    elif hasattr(idaapi, 'get_idp_name'):
+        cpuname = idaapi.get_idp_name().lower()
+        is_64bit = idaapi.inf_is_64bit()
+        is_32bit = idaapi.inf_is_32bit_exactly()
+        is_be = idaapi.inf_is_be()
+    else:
+        assert False, "Unexpected IDAPython API"
+    INF_PROCNAME = cpuname
+    INF_IS_BE = is_be
+    
+    if is_64bit:
+        INF_IS_64BIT = True
+        INF_IS_32BIT = False
+        EA64 = True
+        EA_SIZE = 8
+    elif is_32bit:
+        INF_IS_64BIT = False
+        INF_IS_32BIT = True
+        EA64 = False
+        EA_SIZE = 4
+    else:
+        INF_IS_64BIT = False
+        INF_IS_32BIT = False
+        EA64 = False
+        EA_SIZE = 2
 
     VOID_TINFO = idaapi.tinfo_t(idaapi.BT_VOID)
     PVOID_TINFO.create_ptr(VOID_TINFO)

@@ -20,7 +20,7 @@ def is_imported_ea(ea):
 
 
 def is_code_ea(ea):
-    if idaapi.cvar.inf.procname == "ARM":
+    if const.INF_PROCNAME == "ARM":
         # In case of ARM code in THUMB mode we sometimes get pointers with thumb bit set
         flags = idaapi.get_full_flags(ea & -2)  # flags_t
     else:
@@ -38,7 +38,7 @@ def get_ptr(ea):
     if const.EA64:
         return idaapi.get_64bit(ea)
     ptr = idaapi.get_32bit(ea)
-    if idaapi.cvar.inf.procname == "ARM":
+    if const.INF_PROCNAME == "ARM":
         ptr &= -2    # Clear thumb bit
     return ptr
 
@@ -415,3 +415,26 @@ def my_cexpr_t(*args, **kwargs):
         if 'z' in kwargs:
             cexpr._set_z(kwargs['z'])
     return cexpr
+
+
+def struct_get_struc_name(id):
+    if hasattr(idc, "get_struc_name"): # ida 9.0
+        return idc.get_struc_name(id)
+    else:
+        import ida_struct
+        return ida_struct.get_struc_name(id)
+
+def struct_get_member_name(id):
+    if hasattr(idc, "get_member_name"): # ida 9.0
+        return idc.get_member_name(id)
+    else:
+        import ida_struct
+        return ida_struct.get_member_name(id)
+    
+
+def import_type(type_name):
+    t = idaapi.tinfo_t()
+    if not t.get_named_type(idaapi.cvar.idati, type_name):
+        return idaapi.BADADDR
+    return t.force_tid()
+    

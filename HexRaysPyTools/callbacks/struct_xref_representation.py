@@ -1,6 +1,5 @@
 # encoding:utf-8
 import idaapi
-import ida_struct
 
 from . import actions
 import HexRaysPyTools.core.helper as helper
@@ -48,7 +47,7 @@ class FindFieldXrefs(actions.HexRaysXrefAction):
             struct_name=struct_type.dstr()
             field_name=helper.get_member_name(struct_type, offset)
         
-        if ctx.widget_type == idaapi.BWN_STRUCTS:#struct window ctrl+x
+        if ctx.widget_type == (getattr(idaapi, 'BWN_STRUCTS', None) or getattr(idaapi, 'BWN_LOCTYPS')):#struct window ctrl+x
             #print (dir(ctx));
             #print (dir(ctx.chooser_selection));
             #print (dir(ctx.cur_struc));#struc_t *
@@ -56,8 +55,8 @@ class FindFieldXrefs(actions.HexRaysXrefAction):
             #print (dir(ctx.cur_strmem));#member_t *  the current structure member
             ordinal= ctx.cur_struc.ordinal
             offset= ctx.cur_strmem.soff
-            struct_name = ida_struct.get_struc_name(ctx.cur_struc.id)
-            field_name = ida_struct.get_member_name(ctx.cur_strmem.id)
+            struct_name = helper.get_struc_name(ctx.cur_struc.id)
+            field_name = helper.get_member_name(ctx.cur_strmem.id)
 
 
         result = struct_xrefs.XrefStorage().get_structure_info(ordinal, offset)

@@ -95,7 +95,7 @@ class HexRaysXrefAction(Action):
         raise NotImplementedError
 
     def update(self, ctx):
-        if ctx.widget_type == idaapi.BWN_PSEUDOCODE or ctx.widget_type == idaapi.BWN_STRUCTS  :
+        if ctx.widget_type == idaapi.BWN_PSEUDOCODE or ctx.widget_type == (getattr(idaapi, 'BWN_STRUCTS', None) or getattr(idaapi, 'BWN_LOCTYPS')) :
             return idaapi.AST_ENABLE_FOR_WIDGET
         return idaapi.AST_DISABLE_FOR_WIDGET
 

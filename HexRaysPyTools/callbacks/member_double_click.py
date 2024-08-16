@@ -73,7 +73,7 @@ class MemberDoubleClick(callbacks.HexRaysEventHandler):
                 return 1
 
     def _process_commented_address(self, struct_tinfo, func_offset, item):
-        sid = idaapi.get_struc_id(struct_tinfo.dstr())
+        sid = idc.get_struc_id(struct_tinfo.dstr())
         if sid != idaapi.BADADDR:
             sptr = idaapi.get_struc(sid)
             mid = idaapi.get_member_id(sptr, func_offset)
@@ -87,7 +87,7 @@ class MemberDoubleClick(callbacks.HexRaysEventHandler):
                     pass
 
     def _get_commented_address_from_vtable(self, vtable_tinfo, method_offset):
-        sid = idaapi.get_struc_id(vtable_tinfo.get_type_name())
+        sid = idc.get_struc_id(vtable_tinfo.get_type_name())
         if sid != idaapi.BADADDR:
             sptr = idaapi.get_struc(sid)
             mid = idaapi.get_member_id(sptr, method_offset)
