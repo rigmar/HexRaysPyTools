@@ -1,13 +1,42 @@
 import idaapi
-
 from . import actions
 import HexRaysPyTools.forms as forms
 import HexRaysPyTools.core.type_library as type_library
-from ..settings import get_config
 
+def choose_til():
+    # type: () -> (idaapi.til_t, int, bool)
+    """ Creates a list of loaded libraries, asks user to take one of them and returns it with
+    information about max ordinal and whether it's local or imported library """
+    idati = idaapi.get_idati()
+    if idati is None:
+        print("[ERROR] idati is None")
+        return None
+
+    list_type_library = [(idati, idati.name, idati.desc)]
+    for idx in range(idati.nbases):
+        type_library = idati.base(idx)  # type: idaapi.til_t
+        if type_library is not None:
+            list_type_library.append((type_library, type_library.name, type_library.desc))
+
+    library_chooser = forms.MyChoose(
+        list([[x[1], x[2]] for x in list_type_library]),
+        "Select Library",
+        [["Library", 10 | idaapi.Choose.CHCOL_PLAIN], ["Description", 30 | idaapi.Choose.CHCOL_PLAIN]],
+        69
+    )
+    library_num = library_chooser.Show(True)
+    if library_num != -1:
+        selected_library = list_type_library[library_num][0]  # type: idaapi.til_t
+        max_ordinal = idaapi.get_ordinal_qty(selected_library)
+        if max_ordinal == idaapi.BADORD:
+            _enable_library_ordinals(library_num - 1)
+            max_ordinal = idaapi.get_ordinal_qty(selected_library)
+        print("[DEBUG] Maximal ordinal of lib {0} = {1}".format(selected_library.name, max_ordinal))
+        return selected_library, max_ordinal, library_num == 0
+    return None
 
 def _choose_structure_by_size(size):
-    result = type_library.choose_til()
+    result = choose_til()
     if result:
         selected_library, max_ordinal, is_local_type = result
         matched_types = []
@@ -32,9 +61,7 @@ def _choose_structure_by_size(size):
             return type_library.import_type(selected_library, matched_types[selected_type][1])
     return None
 
-
 class GetStructureBySize(actions.HexRaysPopupAction):
-    # TODO: apply type automatically if expression like `var = new(size)`
     description = "Structures with this size"
 
     def __init__(self):
@@ -58,15 +85,10 @@ class GetStructureBySize(actions.HexRaysPopupAction):
             operand_number = number_format_old.opnum
             number_format_new.opnum = operand_number
             number_format_new.props = number_format_old.props
-            number_format_new.type_name = idaapi.get_numbered_type_name(idaapi.cvar.idati, ordinal)
+            number_format_new.type_name = idaapi.get_numbered_type_name(idaapi.get_idati(), ordinal)
 
             c_function = hx_view.cfunc
             number_formats = c_function.numforms    # type: idaapi.user_numforms_t
-            # print "(number) flags: {0:#010X}, type_name: {1}, opnum: {2}".format(
-            #     number_format.flags,
-            #     number_format.type_name,
-            #     number_format.opnum
-            # )
             operand_locator = idaapi.operand_locator_t(ea, ord(operand_number) if operand_number else 0)
             if operand_locator in number_formats:
                 del number_formats[operand_locator]
@@ -75,5 +97,4 @@ class GetStructureBySize(actions.HexRaysPopupAction):
             c_function.save_user_numforms()
             hx_view.refresh_view(True)
 
-if get_config().get_opt("Structs by size", "GetStructureBySize"):
-    actions.action_manager.register(GetStructureBySize())
+actions.action_manager.register(GetStructureBySize())
