@@ -110,12 +110,7 @@ class SimpleCreateStruct(actions.HexRaysPopupAction):
         if vdui.item.is_citem() and vdui.item.it.is_expr():
             target_item = vdui.item.e
             if target_item.opname == "num":
-                s = idaapi.tag_remove(target_item.cexpr.print1(None)).rstrip("u")
-                if s.startswith("0x"):
-                    struc_size = int(s, 16)
-                else:
-                    struc_size = int(s, 10)
-
+                struct_size = ida_kernwin.str2ea(idaapi.tag_remove(target_item.cexpr.print1(None)))
         class SimpleCreateStructForm(idaapi.Form):
             def __init__(self):
                 idaapi.Form.__init__(self, r"""STARTITEM 0
@@ -142,8 +137,11 @@ class SimpleCreateStruct(actions.HexRaysPopupAction):
                 if ok == 1:
                     # print sel
                     # print len(sel)
+                    # return (
+                    # int(self.numSize.value, 16) if self.numSize.value.startswith("0x") else int(self.numSize.value, 10), self.cStrArg.value, int(self.numFieldSize.value),
+                    # self.ckAlign.checked)
                     return (
-                    int(self.numSize.value, 16) if self.numSize.value.startswith("0x") else int(self.numSize.value, 10), self.cStrArg.value, int(self.numFieldSize.value),
+                    ida_kernwin.str2ea(self.numSize.value), self.cStrArg.value, int(self.numFieldSize.value),
                     self.ckAlign.checked)
                 return None
 

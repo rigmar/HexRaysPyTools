@@ -1,4 +1,7 @@
 from collections import namedtuple
+from HexRaysPyTools.log import Log
+
+import ida_typeinf
 import idaapi
 import idc
 
@@ -10,6 +13,7 @@ fDebug = False
 if fDebug:
     import pydevd_pycharm
 
+logger = Log.get_logger()
 
 RecastLocalVariable = namedtuple('RecastLocalVariable', ['recast_tinfo', 'local_variable'])
 RecastGlobalVariable = namedtuple('RecastGlobalVariable', ['recast_tinfo', 'global_variable_ea'])
@@ -323,6 +327,7 @@ def is_gap(structure_name,field_offset):
             return True
 
 def get_struct_member_type(structure_name, field_offset):
+    logger.debug("[get_struct_member_type] structure_name = %s, field_offset = 0x%02X"%(structure_name, field_offset))
     sid = idaapi.get_struc_id(structure_name)
     if sid != idaapi.BADADDR:
         sptr = idaapi.get_struc(sid)
@@ -333,6 +338,10 @@ def get_struct_member_type(structure_name, field_offset):
             return tif
         return None
 
+
+def get_struct_member_type_new(structure_name, field_offset):
+    if ida_typeinf.get_type_ordinal(ida_typeinf.get_idati(), structure_name) != 0:
+        pass
 
 RECAST_HELPER = 1
 RECAST_STRUCTURE = 4
@@ -509,10 +518,18 @@ class RecastStructMember(actions.HexRaysPopupAction):
                 else:
                     return None
             idx += 1
-        if asg_type and new_type is None:
+        if asg_type is not None and new_type is None:
             new_type = asg_type
-        if new_type:
-            struct_name = target.cexpr.x.type.get_pointed_object().dstr() if target.op == idaapi.cot_memptr else target.cexpr.x.type.dstr()
+        if new_type is not None:
+            #cool 8.4. Two similar cases for struct->field. In one x node have type struct*, in another - just struct without pointer. Briliant.
+            if target.op == idaapi.cot_memptr:
+                if target.cexpr.x.type.is_ptr():
+                    struct_name = target.cexpr.x.type.get_pointed_object()._print()
+                else:
+                    struct_name = target.cexpr.x.type._print()
+            else:
+                struct_name = target.cexpr.x.type._print()
+            logger.debug("[process_branch] struct_name = %s"%struct_name)
             new_type = RecastStructMember.resolve_references(new_type,ref_cnt,ptr_cnt)
             if new_type.is_ptr() and idaapi.cot_idx not in opcodes and (is_gap(struct_name,target.cexpr.m + off_delta) or get_struct_member_type(struct_name,target.cexpr.m + off_delta).is_array()):
                 new_type = new_type.get_pointed_object()

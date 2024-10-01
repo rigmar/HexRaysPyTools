@@ -10,6 +10,9 @@ from HexRaysPyTools.core.helper import convert_name, GetXrefCnt
 from HexRaysPyTools.netnode import Netnode
 import HexRaysPyTools.core.const as Const
 from HexRaysPyTools.settings import get_config
+from HexRaysPyTools.log import Log
+
+logger = Log.get_logger()
 
 vt_node_name = "$ VTables"
 
@@ -27,7 +30,7 @@ class VtableMembersUI(idaapi.Form):
         idaapi.Form.__init__(self,
                              r"""
                              <Vtable %s members:{cEChooser}>   <##Add new:{iButtonAddNew}>
-                             """ % vt_name, {
+                             """ % vt_name.replace(":","\:"), {
                                  'cEChooser': idaapi.Form.EmbeddedChooserControl(self.EChooser),
                                  'iButtonAddNew': idaapi.Form.ButtonInput(self.add_new)
                              })
@@ -144,7 +147,7 @@ class VtableMembersChooser(idaapi.Choose):
             ida_kernwin.jumpto(l[i] + ida_nalt.get_imagebase())
 
     def OnEditLine(self, n):
-        print("OnEditLine: n = ", n)
+        logger.debug("OnEditLine: n = ", n)
         func_addr = ida_kernwin.ask_addr(0, "Enter function addr")
         if func_addr is not None:
             if func_addr != 0:
@@ -214,7 +217,7 @@ class VtableChooser(idaapi.Choose):
         pass
 
     def Close(self):
-        print("Trying close")
+        logger.debug("Trying close")
         pass
 
     def OnGetLine(self, n):
@@ -239,7 +242,7 @@ class VtableChooser(idaapi.Choose):
         return n
 
     def OnSelectLine(self, n):
-        print("Selected %d" % n)
+        logger.debug("Selected %d" % n)
         # print self.items[n]
         self.selected = [n]
         vt_name = self.items[n][0]
@@ -370,6 +373,8 @@ def bound_vtable(addr):
         offsets = []
         while (get_addr_val(addr) != 0 and idaapi.is_func(ida_bytes.get_full_flags(get_addr_val(addr))) and (GetXrefCnt(addr) == 0 or i == 0)) is True:
             c = get_addr_val(addr)
+            logger.debug("c = 0x%08X" % c)
+            logger.debug("i = %d" % i)
             offsets.append(c - ida_nalt.get_imagebase())
             i = i + 1
             addr = addr + ptr_size
@@ -382,6 +387,8 @@ def bound_vtable(addr):
             ida_kernwin.warning("Struct %s has more members than methods in vtbl at 0x%08X"%(name, vt_addr))
         elif sptr.memqty < len(offsets):
             ida_kernwin.warning("Vtbl at 0x%08X has more methods than members quantity in struct %s" % (vt_addr, name))
+    else:
+        ida_kernwin.warning("Type %s not founded" % name)
     return name
 
 if get_config().get_opt("Virtual tables netnode", "BoundVtable"):

@@ -11,6 +11,9 @@ import HexRaysPyTools.core.const as Const
 from HexRaysPyTools.netnode import Netnode
 from ..settings import get_config
 from HexRaysPyTools.core.helper import GetXrefCnt
+from HexRaysPyTools.log import Log
+
+logger = Log.get_logger()
 
 
 class CreateVtable(actions.Action):
@@ -173,8 +176,8 @@ def create_vtable(addr):
     while (get_addr_val(addr) != 0 and idaapi.is_func(ida_bytes.get_full_flags(get_addr_val(addr))) and (GetXrefCnt(addr) == 0 or i == 0)) is True:
         c = get_addr_val(addr)
         methName = ""
-        print("c = 0x%08X" % c)
-        print("i = %d" % i)
+        logger.debug("c = 0x%08X" % c)
+        logger.debug("i = %d" % i)
         if c != 0:
             if ida_bytes.has_name(ida_bytes.get_full_flags(get_addr_val(c))) or ida_name.get_name(c) != "":
                 methName = ida_name.get_name(c)
@@ -189,10 +192,10 @@ def create_vtable(addr):
                 methName = name + "__" + "virt_%X" % c
         else:
             methName = "field_%02X" % (i * 4)
-        print("Name = %s"%methName)
+        logger.debug("Name = %s"%methName)
         sptr = idaapi.get_struc(struct_id)
         e = idaapi.add_struc_member(sptr, methName, i * ptr_size, idaapi.FF_0OFF | fSize | idaapi.FF_DATA, opinf, ptr_size)
-        print ("e = %d" % e)
+        logger.debug ("e = %d" % e)
         if e != 0:
             if e == -1:
                 l = 0

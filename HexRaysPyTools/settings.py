@@ -5,6 +5,9 @@ import ida_diskio
 import ida_kernwin
 import idc
 import configparser
+from HexRaysPyTools.log import Log
+
+logger = Log.get_logger()
 
 hex_pytools_config = None
 
@@ -73,7 +76,7 @@ Need restart Ida Pro for settings applying!
     def Do(self):
         self.Compile()
         ok = self.Execute()
-        print(ok)
+        logger.debug("self.Execute = ", ok)
         if ok == 1:
             self.config.update(self.eChooser.GetItems())
 
@@ -83,7 +86,7 @@ try:
     f = open(CONFIG_FILE_PATH, "ab")
     f.close()
 except:
-    print("Cannot open config file.")
+    logger.error("Cannot open config file.")
     CONFIG_FILE_PATH = os.path.join(os.environ["APPDATA"], "IDA Pro", "cfg", "HexRaysPyTools.cfg")
     if not os.path.exists(os.path.join(os.environ["APPDATA"], "IDA Pro", "cfg")):
         os.makedirs(os.path.join(os.environ["APPDATA"], "IDA Pro", "cfg"))
@@ -122,7 +125,9 @@ def add_default_settings(config):
             with open(CONFIG_FILE_PATH, "w") as f:
                 config.write(f)
         except IOError:
-            print("[ERROR] Failed to write or update config file at {}. Default settings will be used instead.\n" \
+            logger.error("[ERROR] Failed to write or update config file at {}. Default settings will be used instead.\n" \
+                  "Consider running IDA Pro under administrator once".format(CONFIG_FILE_PATH))
+            ida_kernwin.error("[ERROR] Failed to write or update config file at {}. Default settings will be used instead.\n" \
                   "Consider running IDA Pro under administrator once".format(CONFIG_FILE_PATH))
 
 
@@ -159,7 +164,7 @@ class Config(object):
                         "Structs by size":{"GetStructureBySize":True},
                         "Swap if":{"SilentIfSwapper":True, "SwapThenElse":True},
                         "Virtual table creation":{"CreateVtable":True,"DecompileCreateVtable":True,"DisassembleCreateVtable":True},
-                        "Virtual tables netnode":{"BoundVtable":False},
+                        "Virtual tables netnode":{"BoundVtable":True},
                        }
 
     def __init__(self):
@@ -174,7 +179,7 @@ class Config(object):
             f = open(self.file_path, "ab")
             f.close()
         except:
-            print("Cannot open config file.")
+            logger.error("Cannot open config file.")
             self.file_path = os.path.join(os.environ["APPDATA"],"IDA Pro","cfg", "HexRaysPyTools.cfg")
             if not os.path.exists(os.path.join(os.environ["APPDATA"], "IDA Pro", "cfg")):
                 os.makedirs(os.path.join(os.environ["APPDATA"], "IDA Pro", "cfg"))
