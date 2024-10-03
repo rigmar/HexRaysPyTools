@@ -140,8 +140,12 @@ class SimpleCreateStruct(actions.HexRaysPopupAction):
                     # return (
                     # int(self.numSize.value, 16) if self.numSize.value.startswith("0x") else int(self.numSize.value, 10), self.cStrArg.value, int(self.numFieldSize.value),
                     # self.ckAlign.checked)
+                    if self.numSize.value.isnumeric():
+                        struct_size = int(self.numSize.value,10)
+                    else:
+                        struct_size = ida_kernwin.atoea(self.numSize.value)
                     return (
-                    ida_kernwin.str2ea(self.numSize.value), self.cStrArg.value, int(self.numFieldSize.value),
+                    struct_size, self.cStrArg.value, int(self.numFieldSize.value),
                     self.ckAlign.checked)
                 return None
 
