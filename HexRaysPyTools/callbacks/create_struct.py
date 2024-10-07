@@ -110,7 +110,11 @@ class SimpleCreateStruct(actions.HexRaysPopupAction):
         if vdui.item.is_citem() and vdui.item.it.is_expr():
             target_item = vdui.item.e
             if target_item.opname == "num":
-                struct_size = ida_kernwin.str2ea(idaapi.tag_remove(target_item.cexpr.print1(None)))
+                size_str = idaapi.tag_remove(target_item.cexpr.print1(None))
+                # if size_str.is_numeric():
+                #     struct_size = int(size_str, 10)
+                # else:
+                #     struct_size = ida_kernwin.str2ea(idaapi.tag_remove(target_item.cexpr.print1(None)))
         class SimpleCreateStructForm(idaapi.Form):
             def __init__(self):
                 idaapi.Form.__init__(self, r"""STARTITEM 0
@@ -127,11 +131,11 @@ class SimpleCreateStruct(actions.HexRaysPopupAction):
                     'gAlign': idaapi.Form.ChkGroupControl(("ckAlign",)),
                 })
 
-            def Go(self, size=0):
+            def Go(self, size_str = "0"):
                 self.Compile()
                 self.ckAlign.checked = True
                 # f.numFieldSize.value = 4
-                self.numSize.value = str(size)
+                self.numSize.value = size_str
                 ok = self.Execute()
                 # print "Ok = %d"%ok
                 if ok == 1:
@@ -149,7 +153,7 @@ class SimpleCreateStruct(actions.HexRaysPopupAction):
                     self.ckAlign.checked)
                 return None
 
-        ret = SimpleCreateStructForm().Go(struc_size)
+        ret = SimpleCreateStructForm().Go(size_str)
         if ret is not None:
             self.create_struct_type(*ret)
         return 1
