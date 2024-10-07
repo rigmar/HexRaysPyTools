@@ -107,6 +107,7 @@ class SimpleCreateStruct(actions.HexRaysPopupAction):
         vdui = idaapi.get_widget_vdui(ctx.widget)
         vdui.get_current_item(idaapi.USE_KEYBOARD)
         struc_size = 0
+        size_str = "0"
         if vdui.item.is_citem() and vdui.item.it.is_expr():
             target_item = vdui.item.e
             if target_item.opname == "num":
