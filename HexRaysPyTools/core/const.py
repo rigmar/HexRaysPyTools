@@ -36,7 +36,7 @@ def init():
     """ All tinfo should be reinitialized between session. Otherwise they could have wrong type """
     global VOID_TINFO, PVOID_TINFO, CONST_PVOID_TINFO, BYTE_TINFO, PBYTE_TINFO, LEGAL_TYPES, X_WORD_TINFO, \
         PX_WORD_TINFO, DUMMY_FUNC, CONST_PCHAR_TINFO, CHAR_TINFO, PCHAR_TINFO, CONST_VOID_TINFO, \
-        WORD_TINFO, PWORD_TINFO, EA64, EA_SIZE
+        WORD_TINFO, PWORD_TINFO, EA64, EA_SIZE, INF_IS_64BIT, INF_IS_32BIT, INF_IS_BE, INF_PROCNAME
 
     if hasattr(idaapi, 'get_inf_structure'):
         info = idaapi.get_inf_structure()

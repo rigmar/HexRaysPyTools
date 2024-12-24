@@ -20,7 +20,7 @@ def is_imported_ea(ea):
 
 
 def is_code_ea(ea):
-    if const.INF_PROCNAME == "ARM":
+    if const.INF_PROCNAME == "arm":
         # In case of ARM code in THUMB mode we sometimes get pointers with thumb bit set
         flags = idaapi.get_full_flags(ea & -2)  # flags_t
     else:
@@ -38,7 +38,7 @@ def get_ptr(ea):
     if const.EA64:
         return idaapi.get_64bit(ea)
     ptr = idaapi.get_32bit(ea)
-    if const.INF_PROCNAME == "ARM":
+    if const.INF_PROCNAME == "arm":
         ptr &= -2    # Clear thumb bit
     return ptr
 
