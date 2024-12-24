@@ -1,3 +1,4 @@
+# no_compat_file
 import collections
 import logging
 
@@ -291,7 +292,7 @@ class FunctionTouchVisitor(idaapi.ctree_parentee_t):
                 if cfunc:
                     FunctionTouchVisitor(cfunc).process()
             except idaapi.DecompilationFailure:
-                logger.warn("IDA failed to decompile function at {}".format(to_hex(address)))
+                logger.warning("IDA failed to decompile function at {}".format(to_hex(address)))
                 cache.touched_functions.add(address)
         idaapi.decompile(self.cfunc.entry_ea)
 
@@ -376,7 +377,7 @@ def decompile_function(address):
             return cfunc
     except idaapi.DecompilationFailure:
         pass
-    logger.warn("IDA failed to decompile function at 0x{address:08X}".format(address=address))
+    logger.warning("IDA failed to decompile function at 0x{address:08X}".format(address=address))
 
 
 def find_asm_address(cexpr, parents):
@@ -424,17 +425,58 @@ def struct_get_struc_name(id):
         import ida_struct
         return ida_struct.get_struc_name(id)
 
-def struct_get_member_name(id):
-    if hasattr(idc, "get_member_name"): # ida 9.0
-        return idc.get_member_name(id)
-    else:
-        import ida_struct
-        return ida_struct.get_member_name(id)
-    
+# def struct_get_member_name(id):
+#     if hasattr(idc, "get_member_name"): # ida 9.0
+#         return idc.get_member_name(id)
+#     else:
+#         import ida_struct
+#         return ida_struct.get_member_name(id)
 
-def import_type(type_name):
+def _import_type(type_name, ti=idaapi.cvar.idati):
     t = idaapi.tinfo_t()
-    if not t.get_named_type(idaapi.cvar.idati, type_name):
+    if not t.get_named_type(ti, type_name):
         return idaapi.BADADDR
     return t.force_tid()
-    
+
+def _get_member_cmt(tif, off):
+    # if hasattr(idc, "get_struc_id"):
+    _typename = tif.get_type_name()
+    name_sid = idc.get_struc_id(_typename)
+    cmt = idc.get_member_cmt(name_sid, off, 0)
+    return cmt
+
+def get_ordinal_qty(ti: "til_t"=None) -> "uint32":
+    if hasattr(idaapi, 'get_ordinal_limit'):
+        return idaapi.get_oridinal_limit(ti)
+    else:
+        return idaapi.get_ordinal_qty(ti)
+
+def get_ordinal_limit(ti: "til_t"=None) -> "uint32":
+    return get_ordinal_qty(ti)
+
+def __get_tinfo(name):
+    idati = idaapi.get_idati()
+    ti = idaapi.tinfo_t()
+
+    for ordinal in range(1, get_ordinal_qty(idati) + 1):
+        if ti.get_numbered_type(idati, ordinal) and ti.dstr() == name:
+            return ti
+    return None
+
+def choose_tinfo(title):
+    if hasattr(idaapi, 'choose_struct'):
+        tinfo = idaapi.tinfo_t()
+        ret = idaapi.choose_struct(tinfo, title)
+        if ret:
+            return tinfo
+        else:
+            return None
+    else:
+        struct = idaapi.choose_struc(title)  # no_compat
+        if struct is None:
+            return None
+        sid = struct.id
+        name = idaapi.get_struc_name(sid)  # no_compat
+
+        tif = __get_tinfo(name)
+        return tif

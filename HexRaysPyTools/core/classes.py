@@ -223,7 +223,7 @@ class VirtualTable(object):
         ordinal = idaapi.get_type_ordinal(idaapi.cvar.idati, tinfo.dstr())
         if ordinal == 0:
             # if idc.import_type(idaapi.cvar.idati, -1, tinfo.dstr(), 0) == idaapi.BADNODE:
-            if helper.import_type(tinfo.dstr()) == idaapi.BADNODE:
+            if helper._import_type(tinfo.dstr()) == idaapi.BADNODE:
                 raise ImportError("unable to import type to idb ({})".format(tinfo.dstr()))
             ordinal = idaapi.get_type_ordinal(idaapi.cvar.idati, tinfo.dstr())
 
@@ -241,7 +241,7 @@ class VirtualTable(object):
 
     def get_class_tinfo(self):
         if len(self.class_) == 1:
-            return self.class_.tinfo
+            return self.class_[0].tinfo
 
     def setData(self, column, value):
         if column == 0:
@@ -261,7 +261,7 @@ class VirtualTable(object):
 
     @property
     def tooltip(self):
-        pass
+        return None
 
     def font(self, column):
         if self.modified:
@@ -452,7 +452,7 @@ class TreeModel(QtCore.QAbstractItemModel):
         all_virtual_tables.clear()
 
         classes = []
-        for ordinal in range(1, idaapi.get_ordinal_qty(idaapi.cvar.idati)):
+        for ordinal in range(1, helper.get_ordinal_limit(idaapi.cvar.idati)):
             result = Class.create_class(ordinal)
             if result:
                 classes.append(result)

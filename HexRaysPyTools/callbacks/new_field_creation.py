@@ -68,7 +68,7 @@ class CreateNewField(actions.HexRaysPopupAction):
 
         result = self.parse_declaration(declaration)
         if result is None:
-            logger.warn("Bad member declaration")
+            logger.warning("Bad member declaration")
             return
 
         field_tinfo, field_name = result

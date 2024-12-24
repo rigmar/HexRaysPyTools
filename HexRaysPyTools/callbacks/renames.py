@@ -253,7 +253,7 @@ class _RenameUsingAssertVisitor(idaapi.ctree_parentee_t):
             # convert bytes to str (python 3)
             new_name = new_name.decode('ascii')
         if not idaapi.is_valid_typename(new_name):
-            logger.warn("Argument has a weird name `{}` at {}".format(
+            logger.warning("Argument has a weird name `{}` at {}".format(
                 new_name, helper.to_hex(helper.find_asm_address(arg_expr, self.parents))))
             return
 

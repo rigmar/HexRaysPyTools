@@ -117,5 +117,6 @@ def demangled_name_to_c_str(name):
     name = name.replace("*", "_PTR")
     name = name.replace("<", "_t_")
     name = name.replace(">", "_t_")
-    name = "_".join(filter(len, BAD_C_NAME_PATTERN.split(name)))
+    name = BAD_C_NAME_PATTERN.sub('_', name)
+    # name = "_".join(filter(len, BAD_C_NAME_PATTERN.split(name)))
     return name

@@ -1,7 +1,6 @@
 import bisect
 import itertools
 from PyQt5 import QtCore, QtGui, QtWidgets
-from functools import reduce
 
 import ida_name
 import idaapi
@@ -47,30 +46,31 @@ def get_operand_size_type(tif):
     except IndexError:
         return 'field'
 
-def get_type_size(type):
-    sid = idc.get_struc_id(type)
-    if sid != idc.BADADDR:
-        return idc.get_struc_size(sid)
-
-    try:
-        name, tp, fld = idc.parse_decl(type, 1)
-        if tp:
-            return idc.SizeOf(tp)
-    except:
-        return 0
+# def get_type_size(type):
+#     sid = idc.get_struc_id(type)
+#     if sid != idc.BADADDR:
+#         return idc.get_struc_size(sid)
+#
+#     try:
+#         name, tp, fld = idc.parse_decl(type, 1)
+#         if tp:
+#             return idc.SizeOf(tp)
+#     except:
+#         return 0
 
 def get_tinfo(name):
     idati = idaapi.get_idati()
     ti = idaapi.tinfo_t()
 
-    for ordinal in range(1, idaapi.get_ordinal_qty(idati)+1):
+    for ordinal in range(1, helper.get_ordinal_limit(idati)+1):
         if ti.get_numbered_type(idati, ordinal) and ti.dstr() == name:
             return ti
     return None
 
-def score_table(type, offset):
+def score_table(tif: idaapi.tinfo_t, offset):
     alignment = offset % 8
-    size = get_type_size(type)
+    # size = get_type_size(type)
+    size = tif.get_size()
     # the pythonic solution escape me, so we will do this by the numbers
     # and optimise later.
 
@@ -119,7 +119,6 @@ def score_table(type, offset):
         if size == 1:
             score += 8 // size
 
-    tif = get_tinfo(type)
     if tif is None:
         name = "__something_lame"
     else:
@@ -188,7 +187,7 @@ class AbstractMember:
     def score(self):
         """ More score of the member - it better suits as candidate for this offset """
         try:
-            return score_table(self.type_name, self.offset)
+            return score_table(self.tinfo, self.offset)
         except KeyError:
             if self.tinfo and self.tinfo.is_funcptr():
                 return 0x1000 + len(self.tinfo.dstr())
@@ -393,7 +392,7 @@ class VirtualTable(AbstractMember):
         if ordinal:
             print("[Info] Virtual table " + self.vtable_name + " added to Local Types")
             # return idc.import_type(idaapi.cvar.idati, -1, self.vtable_name)
-            return helper.import_type(self.vtable_name)
+            return helper._import_type(self.vtable_name)
         else:
             print("[Error] Failed to create virtual table " + self.vtable_name)
             print("*" * 100)
@@ -670,7 +669,7 @@ class TemporaryStructureModel(QtCore.QAbstractTableModel):
         ret_val = idc.parse_decls(cdecls)
         if ret_val == 0:
             # tid = idc.import_type(idaapi.cvar.idati, -1, base_struct_name)
-            tid = helper.import_type(base_struct_name)
+            tid = helper._import_type(base_struct_name)
             if tid:
                 print(f"[Info] New type \"{base_struct_name}\" was added to Local Types")
                 tinfo = idaapi.create_typedef(base_struct_name)
@@ -705,7 +704,7 @@ class TemporaryStructureModel(QtCore.QAbstractTableModel):
             # TODO: save comments
             if ordinal:
                 # tid = idc.import_type(idaapi.cvar.idati, -1, structure_name)
-                tid = helper.import_type(structure_name)
+                tid = helper._import_type(structure_name)
                 if tid:
                     print(f"[Info] New type \"{structure_name}\" was added to Local Types")
                     tinfo = idaapi.create_typedef(structure_name)
@@ -827,7 +826,7 @@ class TemporaryStructureModel(QtCore.QAbstractTableModel):
             return
         min_size = enabled_items[-1].offset + enabled_items[-1].size - base
         tinfo = idaapi.tinfo_t()
-        for ordinal in range(1, idaapi.get_ordinal_qty(idaapi.cvar.idati)):
+        for ordinal in range(1, helper.get_ordinal_limit(idaapi.cvar.idati)):
             tinfo.get_numbered_type(idaapi.cvar.idati, ordinal)
             if tinfo.is_udt() and tinfo.get_size() >= min_size:
                 is_found = False
@@ -916,15 +915,13 @@ class TemporaryStructureModel(QtCore.QAbstractTableModel):
                     self.add_row(member)
 
     def load_struct(self):
+        tif = helper.choose_tinfo("Select Structure")
+        if tif is None:
+            return None
 
-        struct = idaapi.choose_struc("Select Structure")
-        if struct is None:
-            return
-        sid = struct.id
-        name = idaapi.get_struc_name(sid)
+        name = tif.get_type_name()
         self.default_name = name
 
-        tif = get_tinfo(name)
         sys.modules["__main__"].tif = tif
         nmembers = tif.get_udt_nmembers()
         for index in range(nmembers):
@@ -937,10 +934,7 @@ class TemporaryStructureModel(QtCore.QAbstractTableModel):
 
                 # member.cmt = u.cmt
                 # u.cmt doesn't work, so we will do something ugly
-                _typename = tif.get_type_name()
-                name_sid = idc.get_struc_id(_typename)
-                member.cmt = idc.get_member_cmt(name_sid, u.offset // 8, 0) or "imported from {}".format(name)
-
+                member.cmt = helper._get_member_cmt(tif, u.offset // 8) or "imported from {}".format(name)
                 self.add_row(member)
 
 

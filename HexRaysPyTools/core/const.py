@@ -38,8 +38,8 @@ def init():
         PX_WORD_TINFO, DUMMY_FUNC, CONST_PCHAR_TINFO, CHAR_TINFO, PCHAR_TINFO, CONST_VOID_TINFO, \
         WORD_TINFO, PWORD_TINFO, EA64, EA_SIZE, INF_IS_64BIT, INF_IS_32BIT, INF_IS_BE, INF_PROCNAME
 
-    if hasattr(idaapi, 'get_inf_structure'):
-        info = idaapi.get_inf_structure()
+    if hasattr(idaapi, 'get_inf_structure'): # no_compat
+        info = idaapi.get_inf_structure() # no_compat
         try:
             cpuname = info.procname.lower()
         except:

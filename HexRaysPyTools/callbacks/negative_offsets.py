@@ -110,7 +110,7 @@ class NegativeLocalCandidate:
         if not target_tinfo.get_named_type(type_library, self.tinfo.dstr()):
             print("[Warning] Such type doesn't exist in '{0}' library".format(type_library.name))
             return result
-        for ordinal in range(1, idaapi.get_ordinal_qty(type_library)):
+        for ordinal in range(1, helper.get_ordinal_limit(type_library)):
             parent_tinfo.create_typedef(type_library, ordinal)
             if parent_tinfo.get_size() >= min_struct_size:
                 for offset, name in find_deep_members(parent_tinfo, target_tinfo):
