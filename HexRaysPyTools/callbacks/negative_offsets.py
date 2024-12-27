@@ -226,7 +226,7 @@ class SearchVisitor(idaapi.ctree_parentee_t):
                         parent_tinfo.get_udt_details(udt_data)
                         udt_member = [x for x in udt_data if x.name == member_name]
                         if udt_member:
-                            tinfo = udt_member[0].type
+                            tinfo = udt_member[0].type.copy()
                             self.result[idx] = NegativeLocalInfo(
                                 tinfo,
                                 parent_tinfo,

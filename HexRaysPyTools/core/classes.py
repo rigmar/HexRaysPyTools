@@ -12,8 +12,8 @@ all_virtual_tables = {}         # ordinal -> VirtualTable
 
 
 class VirtualMethod(object):
-    def __init__(self, tinfo, name, parent):
-        self.tinfo = tinfo
+    def __init__(self, tinfo: idaapi.tinfo_t, name, parent):
+        self.tinfo = tinfo.copy()
         self.tinfo_modified = False
         self.name = name
         self.class_name = None
@@ -234,9 +234,9 @@ class VirtualTable(object):
             udt_data = idaapi.udt_type_data_t()
             tinfo.get_udt_details(udt_data)
             result = VirtualTable(ordinal, tinfo, class_)
-            virtual_functions = [VirtualMethod.create(func.type, func.name, result) for func in udt_data]
+            virtual_functions = [VirtualMethod.create(func.type.copy(), func.name, result) for func in udt_data]
             result.virtual_functions = virtual_functions
-            all_virtual_functions[ordinal] = result
+            all_virtual_tables[ordinal] = result
         return result
 
     def get_class_tinfo(self):
@@ -446,7 +446,7 @@ class TreeModel(QtCore.QAbstractItemModel):
         self.setupModelData(self.rootItem)
 
     def setupModelData(self, root):
-        idaapi.show_wait_box("Looking for classes...")
+        # idaapi.show_wait_box("Looking for classes...")
 
         all_virtual_functions.clear()
         all_virtual_tables.clear()
@@ -465,7 +465,7 @@ class TreeModel(QtCore.QAbstractItemModel):
                 class_item.appendChild(vtable_item)
             root.appendChild(class_item)
 
-        idaapi.hide_wait_box()
+        # idaapi.hide_wait_box()
 
     def flags(self, index):
         if index.isValid():

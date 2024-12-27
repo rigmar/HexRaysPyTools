@@ -89,7 +89,7 @@ def get_virtual_func_addresses(name, tinfo=None, offset=None):
             return [address + idaapi.get_imagebase()]
         udt_member.offset = offset
         tinfo.find_udt_member(udt_member, idaapi.STRMEM_OFFSET)
-        tinfo = udt_member.type
+        tinfo = udt_member.type.copy() # copy to avoid interr 918
         offset = offset - udt_member.offset
 
 
@@ -123,7 +123,7 @@ def get_func_argument_info(function, expression):
         if expression == argument.cexpr:
             func_tinfo = function.x.type
             if idx < func_tinfo.get_nargs():
-                return idx, func_tinfo.get_nth_arg(idx)
+                return idx, func_tinfo.get_nth_arg(idx).copy() # copy to avoid interr 918
             return idx, None
     print("[ERROR] Wrong usage of 'Helper.get_func_argument_info()'")
 
@@ -212,6 +212,7 @@ def get_fields_at_offset(tinfo, offset):
             elif udt_member.type.is_udt():
                 result.extend(get_fields_at_offset(udt_member.type, offset - udt_member.offset // 8))
             idx += 1
+    result = [t.copy() for t in result]
     return result
 
 
@@ -447,7 +448,7 @@ def _get_member_cmt(tif, off):
 
 def get_ordinal_qty(ti: "til_t"=None) -> "uint32":
     if hasattr(idaapi, 'get_ordinal_limit'):
-        return idaapi.get_oridinal_limit(ti)
+        return idaapi.get_ordinal_limit(ti)
     else:
         return idaapi.get_ordinal_qty(ti)
 
