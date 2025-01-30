@@ -2,16 +2,23 @@ Plugin for IDA Pro
 
 **Table of Contents**
 
-* [About](#user-content-about)
-* [Installation](#user-content-installation)
-* [Configuration](#user-content-configuration)
-* [Features](#user-content-features)
-    * [Structure reconstruction](#user-content-structure)
-    * [Decompiler output manipulation](#user-content-manipulation)
-    * [Classes](#user-content-classes)
-    * [Structure Graph](#user-content-graph)
-    * [API](#user-content-api)
-* [Presentations](#user-content-presentations)
+* [About](#about)
+* [Installation](#installation)
+* [Configuration](#configuration)
+* [Features](#features)
+    * [Structure reconstruction](#structure-reconstruction)
+      * [Structure View](#structure-view)
+      * [Templated Types View](#templated-types-view)
+    * [Disassembler code manipulations](#disassembler-code-manipulations)
+      * [Containing structures](#containing-structures)
+      * [Function signature manipulation](#function-signature-manipulation)
+      * [Recasting & Renaming](#recasting-shiftr-shiftl-renaming-shiftn-ctrlshiftn)
+      * [Name Propagation](#name-propagation-p)
+      * [Untangling 'if' statements](#untangling-if-statements)
+    * [Classes](#classes)
+    * [Structure Graph](#structure-graph)
+    * [API](#api)
+* [Presentations](#presentations)
 
 # About fork!
 
@@ -21,35 +28,40 @@ It's my fork of plugin with tuning for my convenience of work. Changes:
 - Added new feature to pop-out menu "TakeTypeAsName" that works for variables and structure fields.
 - And rewrote parsing for type recasts. I think my variant more stable and correct.
 
-About
+Pulled some changes from 
+- Added new [Templated Type view](#templated-types-view) to Structure Builder
+- Compatibility fixes for IDA 9
+# About
 =====
 
 The plugin assists in the creation of classes/structures and detection of virtual tables. It also facilitates transforming decompiler output faster and allows to do some stuff which is otherwise impossible.
 
 **Note**: The plugin supports IDA Pro 7.x with Python 2/3.
 
-Installation
-============
+# Installation
 
-Just copy `HexRaysPyTools.py` file and `HexRaysPyTools` directory to Ida plugins directory.
+- Copy `HexRaysPyTools.py` file and `HexRaysPyTools` directory to [`$IDAUSR/plugins`](https://hex-rays.com/blog/igors-tip-of-the-week-33-idas-user-directory-idausr/) directory. 
 
-Configuration
-============
+- Install the plugin requirements found in the `requirements.txt` file. Be sure to install these for the Python environment used by your IDA installation.
 
-Can be found at `IDADIR\cfg\HexRaysPyTools.cfg`
+  - `pip install -r requirements.txt`
+
+## Configuration
+
+Can be found at [`$IDAUSR\cfg\HexRaysPyTools.cfg`](https://hex-rays.com/blog/igors-tip-of-the-week-33-idas-user-directory-idausr/)
 
 * `debug_message_level`. Set 10 if you have a bug and want to show the log along with the information about how it was encountered in the issue.
 * `propagate_through_all_names`. Set `True` if you want to rename not only the default variables for the [Propagate Name](#Propagate) feature.
 * `store_xrefs`. Specifies whether to store the cross-references collected during the decompilation phase inside the database. (Default - True)
 * `scan_any_type`. Set `True` if you want to apply scanning to any variable type. By default, it is possible to scan only basic types like `DWORD`, `QWORD`, `void *` e t.c. and pointers to non-defined structure declarations.
+* `templated_types_file`. Set to default TOML file path for templated types view. (Default - Empty, will auto load `%IDA_DIR%/Plugins/HexRaysPyTools/types/templated_types.toml`)
 
-Features
-========
+# Features
 
 **[Recently added][feature_history]**
 
-Structure reconstruction
-------------------------
+---
+## Structure reconstruction
 
 The reconstruction process usually comprises the following steps:
 
@@ -67,6 +79,8 @@ The place where all the collected information about the scanned variables can be
 * Right Click on a variable -> Deep Scan Variable. First, recursively touches functions to make Ida recognize proper arguments (it happens only once for each function during a session). Then, it recursively applies the scanner to variables and functions, which get the structure pointer as their argument.
 * Right Click on a function -> Deep Scan Returned Value. If you have the singleton pattern or the constructor is called in many places, it is possible to scan all the places, where a pointer to an object was recieved or an object was created.
 * API [TODO]
+
+### Structure View
 
 ![img][builder]
 
@@ -96,6 +110,8 @@ __Pack__ - creates and substitutes a substructure for selected items (collisions
 
 __Unpack__ - dismembers a selected structure and adds all its fields to the builder.
 
+__Load__ - loads a predefined type that is loaded into IDA into the structure builder.
+
 __Remove__ - removes the information about selected fields.
 
 __Clear__ - clears all.
@@ -103,6 +119,10 @@ __Clear__ - clears all.
 __Recognize Shape__ - looks for appropriates structure for selected fields.
 
 __Resolve Conflicts (new)__ - attempts to disable less meaningful fields in favor of more useful ones. (`char` > `_BYTE`, `SOCKET` > `_DWORD` etc). Doesn't help to find arrays.
+
+__Templated Types View__ - switches the templated types view
+
+__Structure View__ - switches to the structure builder view
 
 ### Structure Cross-references (Ctrl + X)
 
@@ -140,7 +160,66 @@ Usage:
     4. You can select several fields and try to recognize their shapes. If found and selected, they will be replaced with a new structure.
     5. After final structure selection, types of all scanned variables will be changed automatically.
 
-## Disassembler code manipulations  <a name="Manipulations"></a>
+### Templated Types View
+
+![img.png](Img/tmpl_types_view.png)
+
+The templated types view allows you to easily define and propagate templated types such as the data types you find within
+STL. 
+
+__Type List__ - list of the loaded types, click on the type you want to set to populate the middle form.
+
+__Selected Type__ - each templated typename has two fields, `Type` & `Name`. The `Type` field is the actual type that 
+will be defined, this has to be a real type, as it will throw an error if it is not. The `Name` field is used to create
+an unique typename for the templated type.
+
+__Creating Type__ - a live output of the types you will set.
+
+__Reload Templated Types TOML__ - if you have edited the current TOML file you will have to reload the list.
+
+__Open Templated Types TOML__ - open your own custom templated types TOML following the templated types structure
+
+**Before:**
+
+![img.png](Img/tmpl_types_before.png)
+
+**After**
+
+![img.png](Img/tmpl_types_after.png)
+
+### TOML Format
+
+```toml
+["std::vector<T>"]           
+base_name = "std_vector_{1}"
+types = ["T"]                
+struct = """                 
+struct std_vector_{1}        
+{{                           
+   {0} *_Myfirst;            
+   {0} *_Mylast;             
+   {0} *_Myend;              
+}};                          
+"""                          
+```
+
+__Class Name__ - pretty type name, this is used as dictionary key and in the types list (`["std::vector<T>"]`)
+
+__Base Name__ - - name used for IDA's structs as we cannot use `::`, format identifiers for type name, these are always odd numbers (Note: this *must* match the base structure name within `struct` string)
+
+__Types__ - define the types here as a list of strings, each type will have 2 format specifier tokens
+
+__Struct__ - this is where you define the struct, format specifiers work as the following:
+* 1st type:
+  - `{0}` (actual type)
+  - `{1}` (pretty print type, `int*` -> `pInt`)
+* 2nd type:
+  - `{2}` (actual type)
+  - `{3}` (pretty print type, `std::string*` -> `pStdString`)
+* (Note: brackets need to be doubled up `{{` & `}}` due to `str.format`
+
+---
+## Disassembler code manipulations
 
 ### Containing structures
 
@@ -173,15 +252,15 @@ If a variable is a structure pointer and there's an access to outside of the bou
 
 Every time you have two sides in an expression, where each side may be a local or global variable, argument or return value of the function signature, it is possible to right-click or press the hotkey to give both sides of the expression similar types. Below, there is the table of possible conversions:
 
-| Original                       | Shift+L                        | Shift+R                        |
-|--------------------------------|--------------------------------|--------------------------------|
-| var = (TYPE) expr              | var type -> TYPE               |                                |
-| exp = (TYPE) var               |                                | var type -> TYPE               |
-| function(..., (TYPE) var, ...) | functions' argument -> TYPE    | var type -> TYPE               |
-| (TYPE) function(...)           |                                | functions' return type -> TYPE |
-| return (TYPE) var              | functions' return type -> TYPE | var type -> TYPE               |
-| struct.field = (TYPE) var      | type(field) -> TYPE            |                                |
-| pstruct->field = (TYPE) var    | type(field) -> TYPE            |                                |
+| Original | Shift+L | Shift+R
+| --- | --- | --- |
+| var = (TYPE) expr | var type -> TYPE  |  |
+| exp = (TYPE) var |  | var type -> TYPE |
+| function(..., (TYPE) var, ...) | functions' argument -> TYPE | var type -> TYPE |
+| (TYPE) function(...) | | functions' return type -> TYPE |
+| return (TYPE) var | functions' return type -> TYPE | var type -> TYPE |
+| struct.field = (TYPE) var | type(field) -> TYPE | |
+| pstruct->field = (TYPE) var | type(field) -> TYPE | |
 
 When you have an expression like `function(..., some_good_name, ...)`, you can rename function parameter.
 
@@ -244,8 +323,8 @@ Class, virtual tables, and functions names are editable. Also a function's decla
 
 You can also filter classes using Regexp either by class_name or by existence of specific functions. Simply input an expression in line edit for filtering by class_name or prepend it with "!" to filter by function name.
 
-Structure Graph
----------------
+---
+## Structure Graph
 
 Shows relationship between structures:
 
@@ -261,13 +340,13 @@ Usage:
 4. Double clicking on a node recalculates the graph for it.
 5. Every node has a hint message that shows C-like typedef.
 
-API
 ---
+## API
 
 **Under construction**
 
-Presentations
-=============
+---
+## Presentations
 
 * [ZeroNights 2016](https://2016.zeronights.ru/wp-content/uploads/2016/12/zeronights_2016_Kirillov.pptx)
 * [Insomni'hack 2018](https://www.youtube.com/watch?v=pnPuwBtW2_4)
@@ -278,7 +357,7 @@ Presentations
 [structure_graph]: Img/structure_builder.JPG
 [bad_structures]: Img/bad.JPG
 [good_structures]: Img/good.JPG
-[builder]: Img/builder.JPG
+[builder]: Img/builder.png
 [virtual_functions]: Img/virtual_functions.JPG
 [scanned_variables]: Img/fields_xref.JPG
 [classes]: Img/classes.JPG

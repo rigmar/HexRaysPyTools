@@ -81,15 +81,16 @@ Need restart Ida Pro for settings applying!
             self.config.update(self.eChooser.GetItems())
 
 
-CONFIG_FILE_PATH = os.path.join(idc.idadir(), 'cfg', 'HexRaysPyTools.cfg')
+CONFIG_FILE_PATH = os.path.join(ida_diskio.get_user_idadir(), 'cfg', 'HexRaysPyTools.cfg')
+CONFIG_DIRECTORY = os.path.join(ida_diskio.get_user_idadir(), 'cfg')
 try:
     f = open(CONFIG_FILE_PATH, "ab")
     f.close()
 except:
     logger.error("Cannot open config file.")
-    CONFIG_FILE_PATH = os.path.join(os.environ["APPDATA"], "IDA Pro", "cfg", "HexRaysPyTools.cfg")
-    if not os.path.exists(os.path.join(os.environ["APPDATA"], "IDA Pro", "cfg")):
-        os.makedirs(os.path.join(os.environ["APPDATA"], "IDA Pro", "cfg"))
+    CONFIG_FILE_PATH = os.path.join(ida_diskio.get_user_idadir(), "cfg", "HexRaysPyTools.cfg")
+    if not os.path.exists(os.path.join(ida_diskio.get_user_idadir(), "cfg")):
+        os.makedirs(os.path.join(ida_diskio.get_user_idadir(), "cfg"))
     f = open(CONFIG_FILE_PATH, "ab")
     f.close()
 
@@ -102,6 +103,9 @@ STORE_XREFS = True
 # Full list can be found in `Const.LEGAL_TYPES`.
 # But if set this option to True than variable of every type could be possible to scan
 SCAN_ANY_TYPE = False
+
+TEMPLATED_TYPES_FILE = os.path.join(
+                os.path.dirname(__file__), 'types', 'templated_types.toml')
 
 
 
@@ -119,9 +123,14 @@ def add_default_settings(config):
     if not config.has_option("DEFAULT", "SCAN_ANY_TYPE"):
         config.set(None, 'SCAN_ANY_TYPE', str(SCAN_ANY_TYPE))
         updated = True
+    if not config.has_option("DEFAULT", "TEMPLATED_TYPES_FILE"):
+        config.set(None, 'TEMPLATED_TYPES_FILE', str(TEMPLATED_TYPES_FILE))
+        updated = True
 
     if updated:
         try:
+            if not os.path.exists(CONFIG_DIRECTORY):
+                os.makedirs(CONFIG_DIRECTORY)
             with open(CONFIG_FILE_PATH, "w") as f:
                 config.write(f)
         except IOError:
@@ -132,7 +141,13 @@ def add_default_settings(config):
 
 
 def load_settings():
-    global DEBUG_MESSAGE_LEVEL, PROPAGATE_THROUGH_ALL_NAMES, STORE_XREFS, SCAN_ANY_TYPE, hex_pytools_config
+    global                           \
+        DEBUG_MESSAGE_LEVEL,         \
+        PROPAGATE_THROUGH_ALL_NAMES, \
+        STORE_XREFS,                 \
+        SCAN_ANY_TYPE,               \
+        TEMPLATED_TYPES_FILE,        \
+        hex_pytools_config
 
     config = configparser.ConfigParser()
     config.optionxform = str
@@ -145,6 +160,7 @@ def load_settings():
     PROPAGATE_THROUGH_ALL_NAMES = config.getboolean("DEFAULT", 'PROPAGATE_THROUGH_ALL_NAMES')
     STORE_XREFS = config.getboolean("DEFAULT", 'STORE_XREFS')
     SCAN_ANY_TYPE = config.getboolean("DEFAULT", 'SCAN_ANY_TYPE')
+    TEMPLATED_TYPES_FILE = config.get("DEFAULT", 'TEMPLATED_TYPES_FILE')
 
 
 class Config(object):
@@ -157,7 +173,7 @@ class Config(object):
                         "Negative offsets":{"SelectContainingStructure":True},
                         "New field creation":{"CreateNewField":True},
                         "Recasts":{"RecastItemLeft":True,"RecastItemRight":True,"RecastStructMember":True},
-                        "Renames":{"RenameOther":True,"RenameInside":True,"RenameOutside":True,"RenameUsingAssert":True,"PropagateName":True,"TakeTypeAsName":True},
+                        "Renames":{"RenameOther":True,"RenameInside":True,"RenameOutside":True,"RenameUsingAssert":True,"PropagateName":True,"TakeTypeAsName":True, "RenameMemberFromFunctionName":False},
                         "Scanners":{"ShallowScanVariable":True,"DeepScanVariable":True,"RecognizeShape":True,"DeepScanReturn":True,"DeepScanFunctions":True},
                         "Struct xref collector":{"StructXrefCollector":True},
                         "Struct xref representation":{"FindFieldXrefs":True},

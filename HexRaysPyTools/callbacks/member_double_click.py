@@ -2,6 +2,8 @@ import idaapi
 import ida_struct
 import ida_funcs
 
+import idc
+import ida_hexrays
 from . import callbacks
 import HexRaysPyTools.core.helper as helper
 from ..core import const
@@ -10,6 +12,8 @@ from ..settings import get_config
 fDebug = False
 if fDebug:
     import pydevd_pycharm
+
+CALLED_FROM_COMMENT = "CALLED_FROM =>"
 
 class MemberDoubleClick(callbacks.HexRaysEventHandler):
     def __init__(self):

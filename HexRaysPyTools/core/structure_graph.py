@@ -4,7 +4,7 @@ import idaapi
 import idc
 
 logger = Log.get_logger()
-
+from HexRaysPyTools.core import helper
 
 class LocalType:
     def __init__(self, name, members_ordinals, hint, is_selected=False, is_typedef=False, is_enum=False, is_union=False):
@@ -41,7 +41,7 @@ class LocalType:
 class StructureGraph:
     # TODO:Enum types display
     def __init__(self, ordinal_list=None):
-        self.ordinal_list = ordinal_list if ordinal_list else range(1, idc.get_ordinal_qty())
+        self.ordinal_list = ordinal_list if ordinal_list else range(1, helper.get_ordinal_limit())
         self.local_types = {}
         self.edges = []
         self.final_edges = []
@@ -75,7 +75,7 @@ class StructureGraph:
             if typeref_ordinal:
                 typeref_tinfo = StructureGraph.get_tinfo_by_ordinal(typeref_ordinal)
                 if typeref_tinfo is None:
-                    logger.warn("You have dependencies of deleted %s type", tinfo.dstr())
+                    logger.warning("You have dependencies of deleted %s type", tinfo.dstr())
                     return 0
 
                 if typeref_tinfo.is_typeref() or typeref_tinfo.is_udt() or typeref_tinfo.is_ptr():
@@ -105,7 +105,7 @@ class StructureGraph:
         return None
 
     def initialize_nodes(self):
-        for ordinal in range(1, idc.get_ordinal_qty()):
+        for ordinal in range(1, helper.get_ordinal_limit()):
             # if ordinal == 15:
             #     import pydevd
             #     pydevd.settrace("localhost", port=12345, stdoutToServer=True, stderrToServer=True)

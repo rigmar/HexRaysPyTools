@@ -1,7 +1,7 @@
 import re
 
 
-BAD_C_NAME_PATTERN = re.compile('[^a-zA-Z_0-9:]')
+BAD_C_NAME_PATTERN = re.compile(":::+|(?=:(?=[^:]))(?=(?<=[^:]):):|^:[^:]|[^:]:$|^:$|[^a-zA-Z_0-9:]")
 
 
 def demangled_name_to_c_str(name):
@@ -9,6 +9,10 @@ def demangled_name_to_c_str(name):
     Removes or replaces characters from demangled symbol so that it was possible to create legal C structure from it
     """
     if not BAD_C_NAME_PATTERN.findall(name):
+        return name
+
+    # filter `vtable and `typeinfo
+    if name.startswith('`'):
         return name
 
     # FIXME: This is very ugly way to find and replace illegal characters
@@ -115,5 +119,6 @@ def demangled_name_to_c_str(name):
     name = name.replace("*", "_PTR")
     name = name.replace("<", "_t_")
     name = name.replace(">", "_t_")
-    name = "_".join(filter(len, BAD_C_NAME_PATTERN.split(name)))
+    name = BAD_C_NAME_PATTERN.sub('_', name)
+    # name = "_".join(filter(len, BAD_C_NAME_PATTERN.split(name)))
     return name

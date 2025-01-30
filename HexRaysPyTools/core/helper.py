@@ -1,3 +1,4 @@
+# no_compat_file
 import collections
 from HexRaysPyTools.log import Log
 
@@ -36,7 +37,7 @@ def is_imported_ea(ea):
 
 
 def is_code_ea(ea):
-    if idaapi.cvar.inf.procname == "ARM":
+    if const.INF_PROCNAME == "arm":
         # In case of ARM code in THUMB mode we sometimes get pointers with thumb bit set
         flags = idaapi.get_full_flags(ea & -2)  # flags_t
     else:
@@ -54,7 +55,7 @@ def get_ptr(ea):
     if const.EA64:
         return idaapi.get_64bit(ea)
     ptr = idaapi.get_32bit(ea)
-    if idaapi.cvar.inf.procname == "ARM":
+    if const.INF_PROCNAME == "arm":
         ptr &= -2    # Clear thumb bit
     return ptr
 
@@ -104,7 +105,7 @@ def get_virtual_func_addresses(name, tinfo=None, offset=None):
             return [address + idaapi.get_imagebase()]
         udt_member.offset = offset
         tinfo.find_udt_member(udt_member, idaapi.STRMEM_OFFSET)
-        tinfo = udt_member.type
+        tinfo = udt_member.type.copy() # copy to avoid interr 918
         offset = offset - udt_member.offset
 
 
@@ -138,7 +139,7 @@ def get_func_argument_info(function, expression):
         if expression == argument.cexpr:
             func_tinfo = function.x.type
             if idx < func_tinfo.get_nargs():
-                return idx, func_tinfo.get_nth_arg(idx)
+                return idx, func_tinfo.get_nth_arg(idx).copy() # copy to avoid interr 918
             return idx, None
     print("[ERROR] Wrong usage of 'Helper.get_func_argument_info()'")
 
@@ -227,6 +228,7 @@ def get_fields_at_offset(tinfo, offset):
             elif udt_member.type.is_udt():
                 result.extend(get_fields_at_offset(udt_member.type, offset - udt_member.offset // 8))
             idx += 1
+    result = [t.copy() for t in result]
     return result
 
 
@@ -307,7 +309,7 @@ class FunctionTouchVisitor(idaapi.ctree_parentee_t):
                 if cfunc:
                     FunctionTouchVisitor(cfunc).process()
             except idaapi.DecompilationFailure:
-                logger.warn("IDA failed to decompile function at {}".format(to_hex(address)))
+                logger.warning("IDA failed to decompile function at {}".format(to_hex(address)))
                 cache.touched_functions.add(address)
         idaapi.decompile(self.cfunc.entry_ea)
 
@@ -356,9 +358,9 @@ def load_long_str_from_idb(array_name):
     result = []
     for idx in range(max_idx + 1):
         e = idc.get_array_element(idc.AR_STR, id, idx)
-        if isinstance(e,bytes):
-            result.append(e)
-
+        if type(e) == int:
+            e = e.to_bytes((e.bit_length() + 7) // 8, 'little')
+        result.append(e)
     return b"".join(result).decode("utf-8")
 
 def create_padding_udt_member(offset, size):
@@ -373,6 +375,8 @@ def create_padding_udt_member(offset, size):
     if size == 1:
         udt_member.type = const.BYTE_TINFO
     else:
+        if size < 1 or size > 0xffffffff:
+            print("HexRaysPyTools::core::helper::create_padding_udt_member: size is out of uint32 range (offset:{} size:{})".format(offset, size))
         array_data = idaapi.array_type_data_t()
         array_data.base = 0
         array_data.elem_type = const.BYTE_TINFO
@@ -390,7 +394,7 @@ def decompile_function(address):
             return cfunc
     except idaapi.DecompilationFailure:
         pass
-    logger.warn("IDA failed to decompile function at 0x{address:08X}".format(address=address))
+    logger.warning("IDA failed to decompile function at 0x{address:08X}".format(address=address))
 
 
 def find_asm_address(cexpr, parents):
@@ -436,3 +440,66 @@ def get_func_ea(name):
         if n == name:
             return ea
     return None
+
+def struct_get_struc_name(id):
+    if hasattr(idc, "get_struc_name"): # ida 9.0
+        return idc.get_struc_name(id)
+    else:
+        import ida_struct
+        return ida_struct.get_struc_name(id)
+
+# def struct_get_member_name(id):
+#     if hasattr(idc, "get_member_name"): # ida 9.0
+#         return idc.get_member_name(id)
+#     else:
+#         import ida_struct
+#         return ida_struct.get_member_name(id)
+
+def _import_type(type_name, ti=idaapi.cvar.idati):
+    t = idaapi.tinfo_t()
+    if not t.get_named_type(ti, type_name):
+        return idaapi.BADADDR
+    return t.force_tid()
+
+def _get_member_cmt(tif, off):
+    # if hasattr(idc, "get_struc_id"):
+    _typename = tif.get_type_name()
+    name_sid = idc.get_struc_id(_typename)
+    cmt = idc.get_member_cmt(name_sid, off, 0)
+    return cmt
+
+def get_ordinal_qty(ti: "til_t"=None) -> "uint32":
+    if hasattr(idaapi, 'get_ordinal_limit'):
+        return idaapi.get_ordinal_limit(ti)
+    else:
+        return idaapi.get_ordinal_qty(ti)
+
+def get_ordinal_limit(ti: "til_t"=None) -> "uint32":
+    return get_ordinal_qty(ti)
+
+def __get_tinfo(name):
+    idati = idaapi.get_idati()
+    ti = idaapi.tinfo_t()
+
+    for ordinal in range(1, get_ordinal_qty(idati) + 1):
+        if ti.get_numbered_type(idati, ordinal) and ti.dstr() == name:
+            return ti
+    return None
+
+def choose_tinfo(title):
+    if hasattr(idaapi, 'choose_struct'):
+        tinfo = idaapi.tinfo_t()
+        ret = idaapi.choose_struct(tinfo, title)
+        if ret:
+            return tinfo
+        else:
+            return None
+    else:
+        struct = idaapi.choose_struc(title)  # no_compat
+        if struct is None:
+            return None
+        sid = struct.id
+        name = idaapi.get_struc_name(sid)  # no_compat
+
+        tif = __get_tinfo(name)
+        return tif

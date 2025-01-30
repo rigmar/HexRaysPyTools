@@ -111,7 +111,7 @@ class NegativeLocalCandidate:
         if not target_tinfo.get_named_type(type_library, self.tinfo.dstr()):
             print("[Warning] Such type doesn't exist in '{0}' library".format(type_library.name))
             return result
-        for ordinal in range(1, idaapi.get_ordinal_qty(type_library)):
+        for ordinal in range(1, helper.get_ordinal_limit(type_library)):
             parent_tinfo.create_typedef(type_library, ordinal)
             if parent_tinfo.get_size() >= min_struct_size:
                 for offset, name in find_deep_members(parent_tinfo, target_tinfo):
@@ -176,7 +176,7 @@ class ReplaceVisitor(idaapi.ctree_parentee_t):
         new_cexpr_call.a.push_back(arg_field)
         new_cexpr_call.thisown = False
 
-        parent = reversed(self.parents).next().cexpr
+        parent = next(reversed(self.parents)).cexpr
 
         diff = negative_lvar.offset + offset
         if diff:
@@ -227,7 +227,7 @@ class SearchVisitor(idaapi.ctree_parentee_t):
                         parent_tinfo.get_udt_details(udt_data)
                         udt_member = [x for x in udt_data if x.name == member_name]
                         if udt_member:
-                            tinfo = udt_member[0].type
+                            tinfo = udt_member[0].type.copy()
                             self.result[idx] = NegativeLocalInfo(
                                 tinfo,
                                 parent_tinfo,

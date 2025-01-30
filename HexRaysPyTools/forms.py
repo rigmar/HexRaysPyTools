@@ -1,11 +1,17 @@
 import ida_kernwin
 from PyQt5 import QtCore, QtWidgets
+import os
+
+from PyQt5 import QtCore, QtWidgets, QtGui
 
 import idaapi
 from HexRaysPyTools.settings import get_config
 import HexRaysPyTools.core.vtables_netnode as vtables_netnode
 
 
+import ida_kernwin
+import idc
+import re
 
 
 class MyChoose(idaapi.Choose):
@@ -52,12 +58,17 @@ class StructureBuilder(idaapi.PluginForm):
         btn_unpack = QtWidgets.QPushButton("&Unpack")
         btn_remove = QtWidgets.QPushButton("&Remove")
         btn_resolve = QtWidgets.QPushButton("Resolve")
+        btn_load = QtWidgets.QPushButton("&Load")
         btn_clear = QtWidgets.QPushButton("Clear")  # Clear button doesn't have shortcut because it can fuck up all work
         btn_recognize = QtWidgets.QPushButton("Recognize Shape")
         btn_config = QtWidgets.QPushButton("Configure features")
         btn_vt_node_edit = QtWidgets.QPushButton("Edit vtables")
         btn_recognize.setStyleSheet("QPushButton {width: 100px; height: 20px;}")
         btn_config.setStyleSheet("QPushButton {width: 100px; height: 20px;}")
+        btn_stl = QtWidgets.QPushButton("Templated Types View")
+        btn_stl.setStyleSheet("QPushButton {width: 150px; height: 20px;}")
+        btn_struct = QtWidgets.QPushButton("Structure View")
+        btn_struct.setStyleSheet("QPushButton {width: 150px; height: 20px;}")
 
         btn_finalize.setShortcut("f")
         btn_disable.setShortcut("d")
@@ -67,6 +78,7 @@ class StructureBuilder(idaapi.PluginForm):
         btn_pack.setShortcut("p")
         btn_unpack.setShortcut("u")
         btn_remove.setShortcut("r")
+        btn_load.setShortcut("l")
 
         struct_view = QtWidgets.QTableView()
         struct_view.setModel(self.structure_model)
@@ -77,26 +89,79 @@ class StructureBuilder(idaapi.PluginForm):
         struct_view.horizontalHeader().setStretchLastSection(True)
         struct_view.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
 
+        self.stl_list = QtWidgets.QListWidget()
+        # stl_list_item_0 = QtWidgets.QListWidgetItem("std::string")
+        for item in self.structure_model.tmpl_types.keys:
+            self.stl_list.addItem(item)
+        self.stl_list.setFixedWidth(300)
+        self.stl_list.setCurrentRow(0)
+
+        self.stl_title_fields = QtWidgets.QLabel("Selected Type: ")
+        self.stl_title_struct = QtWidgets.QLabel("Creating Type: ")
+        self.stl_struct_view = QtWidgets.QTextEdit()
+        self.stl_struct_view.setReadOnly(True)
+        font = QtGui.QFont("Courier", 11)
+        self.stl_struct_view.setFont(font)
+        # self.stl_struct_view.setAlignment(QtCore.Qt.AlignTop)
+        # self.stl_struct_view.setStyleSheet("border: 1px solid black;")
+
+        btn_reload_stl_list = QtWidgets.QPushButton("Reload Templated Types TOML")
+        btn_reload_stl_list.setFixedWidth(300)
+
+        btn_open_stl_toml = QtWidgets.QPushButton("Open Templated Types TOML")
+        btn_reload_stl_list.setFixedWidth(300)
+
+        self.stl_widget = QtWidgets.QWidget()
+        self.stl_form_layout = QtWidgets.QFormLayout()
+
+        self.update_stl_form()
+
+        self.stl_layout = QtWidgets.QGridLayout()
+        self.stl_layout.addWidget(QtWidgets.QLabel("Type List"), 0, 0)
+        self.stl_layout.addWidget(self.stl_title_fields, 0, 1)
+        self.stl_layout.addWidget(self.stl_title_struct, 0, 2)
+        self.stl_layout.addWidget(self.stl_struct_view, 1, 2)
+        self.stl_layout.addWidget(self.stl_list, 1, 0)
+        self.stl_layout.addWidget(self.stl_widget, 1, 1)
+        self.stl_layout.addWidget(btn_reload_stl_list, 2, 0)
+        self.stl_layout.addWidget(btn_open_stl_toml, 3, 0)
+
+        self.stl_layout.setColumnStretch(1, 1)
+        self.stl_layout.setColumnStretch(2, 1)
+
+        self.stl_view = QtWidgets.QWidget()
+        self.stl_view.setLayout(self.stl_layout)
+
         grid_box = QtWidgets.QGridLayout()
         grid_box.setSpacing(0)
         grid_box.addWidget(btn_finalize, 0, 0)
         grid_box.addWidget(btn_enable, 0, 1)
         grid_box.addWidget(btn_disable, 0, 2)
         grid_box.addWidget(btn_origin, 0, 3)
-        grid_box.addItem(QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Expanding), 0, 5)
+        # grid_box.addItem(QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Expanding), 0, 6)
         grid_box.addWidget(btn_array, 1, 0)
         grid_box.addWidget(btn_pack, 1, 1)
         grid_box.addWidget(btn_unpack, 1, 2)
         grid_box.addWidget(btn_remove, 1, 3)
         grid_box.addWidget(btn_resolve, 0, 4)
-        grid_box.addItem(QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Expanding), 1, 5)
+        # grid_box.addItem(QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Expanding), 1, 5)
         grid_box.addWidget(btn_recognize, 0, 6)
         grid_box.addWidget(btn_clear, 1, 6)
         grid_box.addWidget(btn_config, 0, 7)
         grid_box.addWidget(btn_vt_node_edit, 1, 7)
+        grid_box.addWidget(btn_load, 1, 4)
+        grid_box.addWidget(btn_stl, 0, 5)
+        grid_box.addWidget(btn_struct, 1, 5)
+        grid_box.addWidget(btn_recognize, 0, 8)
+        grid_box.addWidget(btn_clear, 1, 8)
+
+        stack = QtWidgets.QStackedWidget()
+        stack.addWidget(struct_view)
+        stack.addWidget(self.stl_view)
 
         vertical_box = QtWidgets.QVBoxLayout()
         vertical_box.addWidget(struct_view)
+        vertical_box.addWidget(stack)
         vertical_box.addLayout(grid_box)
         self.parent.setLayout(vertical_box)
 
@@ -111,10 +176,106 @@ class StructureBuilder(idaapi.PluginForm):
         btn_unpack.clicked.connect(lambda: self.structure_model.unpack_substructure(struct_view.selectedIndexes()))
         btn_remove.clicked.connect(lambda: self.structure_model.remove_items(struct_view.selectedIndexes()))
         btn_resolve.clicked.connect(lambda: self.structure_model.resolve_types())
+        btn_stl.clicked.connect(lambda: stack.setCurrentIndex(1))
+        btn_struct.clicked.connect(lambda: stack.setCurrentIndex(0))
+        btn_load.clicked.connect(lambda: self.structure_model.load_struct())
         btn_clear.clicked.connect(lambda: self.structure_model.clear())
         btn_recognize.clicked.connect(lambda: self.structure_model.recognize_shape(struct_view.selectedIndexes()))
         struct_view.activated[QtCore.QModelIndex].connect(self.structure_model.activated)
         self.structure_model.dataChanged.connect(struct_view.clearSelection)
+
+        self.stl_list.currentRowChanged.connect(self.update_stl_form)
+        btn_reload_stl_list.clicked.connect(self.reload_stl_list)
+        btn_open_stl_toml.clicked.connect(self.open_dialog_stl_file)
+
+    def update_stl_form(self):
+        # wrapped in a try/except, as exception is thrown when TOML is refreshed
+        try:
+            # get key and update title
+            key = self.stl_list.currentItem().text()
+            self.stl_title_fields.setText("Selected Type: {}".format(key))
+            types = self.structure_model.tmpl_types.get_types(key)
+
+            # remove previous widgets from layout... QT needs to do this
+            for i in reversed(range(self.stl_form_layout.count())):
+                self.stl_form_layout.itemAt(i).widget().setParent(None)
+
+            # for each template type we add a type & name field
+            for t in types:
+                e1 = QtWidgets.QLineEdit()
+                e2 = QtWidgets.QLineEdit()
+                self.stl_form_layout.addRow(QtWidgets.QLabel("{0} Type".format(t)), e1)
+                self.stl_form_layout.addRow(QtWidgets.QLabel("{0} Name".format(t)), e2)
+                e1.textChanged.connect(lambda: self.reload_stl_struct(key))
+                e2.textChanged.connect(lambda: self.reload_stl_struct(key))
+
+            # add the button and apply layout to widget
+            btn_set_type = QtWidgets.QPushButton("Set Type")
+            self.stl_form_layout.addRow(btn_set_type)
+            self.stl_widget.setLayout(self.stl_form_layout)
+
+            self.reload_stl_struct(key)
+
+            # connect a callback to the button
+            btn_set_type.clicked.connect(lambda: self.call_set_stl_type(key))
+        except:
+            pass
+
+    def reload_stl_list(self):
+        self.stl_list.clear()
+        self.structure_model.tmpl_types.reload_types()
+        for item in self.structure_model.tmpl_types.keys:
+            self.stl_list.addItem(item)
+
+    def reload_stl_struct(self, key):
+        try:
+            struct = self.structure_model.tmpl_types.get_struct(key)
+            base_name = "Creating Type: " + self.structure_model.tmpl_types.get_base_name(key)
+            args = self.get_stl_args(key)
+            self.stl_struct_view.setPlainText(struct.format(*args))
+            self.stl_title_struct.setText(base_name.format(*args))
+        except:
+            pass
+
+    def get_stl_args(self, key):
+        args = ()
+        # collect text in the text boxes push into tuple
+        for w in self.stl_widget.findChildren(QtWidgets.QLineEdit):
+            arg = w.text()
+            if arg == "":
+                arg = "$void$"
+            args = args + (arg,)
+        return args
+
+    def call_set_stl_type(self, key):
+        args = self.get_stl_args(key)
+
+        for i in range(len(args)):
+            # type line edit
+            if i % 2 == 0:
+                if not re.match(r"^[a-zA-Z_]([\w_](::){0,2})+(?<!:)\**$", args[i]):
+                    ida_kernwin.warning(f'Type name {args[i]} is an invalid type name')
+                    return
+            # name line edit
+            else:
+                if not re.match(r'^\w+$', args[i]):
+                    ida_kernwin.warning(f'Type name {args[i]} is an invalid name')
+                    return
+
+        self.structure_model.set_stl_type(key, args)
+
+    def open_dialog_stl_file(self):
+        file_name = QtWidgets.QFileDialog.getOpenFileName(None, 'Open TOML file',
+            os.path.join(
+                idc.idadir(),
+                'plugins',
+                'HexRaysPyTools',
+                'types'),
+            "Toml file (*.toml)"
+        )
+        print(f"[INFO] Opening {file_name[0]}")
+        self.structure_model.tmpl_types.set_file_path(file_name[0])
+        self.reload_stl_list()
 
     def OnClose(self, form):
         pass

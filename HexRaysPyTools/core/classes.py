@@ -1,6 +1,7 @@
 from PyQt5 import QtCore, QtGui
 
 import idaapi
+import idc
 
 import HexRaysPyTools.forms
 from . import helper
@@ -11,8 +12,8 @@ all_virtual_tables = {}         # ordinal -> VirtualTable
 
 
 class VirtualMethod(object):
-    def __init__(self, tinfo, name, parent):
-        self.tinfo = tinfo
+    def __init__(self, tinfo: idaapi.tinfo_t, name, parent):
+        self.tinfo = tinfo.copy()
         self.tinfo_modified = False
         self.name = name
         self.class_name = None
@@ -221,7 +222,8 @@ class VirtualTable(object):
     def create(tinfo, class_):
         ordinal = idaapi.get_type_ordinal(idaapi.cvar.idati, tinfo.dstr())
         if ordinal == 0:
-            if idaapi.import_type(idaapi.cvar.idati, -1, tinfo.dstr(), 0) == idaapi.BADNODE:
+            # if idc.import_type(idaapi.cvar.idati, -1, tinfo.dstr(), 0) == idaapi.BADNODE:
+            if helper._import_type(tinfo.dstr()) == idaapi.BADNODE:
                 raise ImportError("unable to import type to idb ({})".format(tinfo.dstr()))
             ordinal = idaapi.get_type_ordinal(idaapi.cvar.idati, tinfo.dstr())
 
@@ -232,14 +234,14 @@ class VirtualTable(object):
             udt_data = idaapi.udt_type_data_t()
             tinfo.get_udt_details(udt_data)
             result = VirtualTable(ordinal, tinfo, class_)
-            virtual_functions = [VirtualMethod.create(func.type, func.name, result) for func in udt_data]
+            virtual_functions = [VirtualMethod.create(func.type.copy(), func.name, result) for func in udt_data]
             result.virtual_functions = virtual_functions
-            all_virtual_functions[ordinal] = result
+            all_virtual_tables[ordinal] = result
         return result
 
     def get_class_tinfo(self):
         if len(self.class_) == 1:
-            return self.class_.tinfo
+            return self.class_[0].tinfo
 
     def setData(self, column, value):
         if column == 0:
@@ -259,7 +261,7 @@ class VirtualTable(object):
 
     @property
     def tooltip(self):
-        pass
+        return None
 
     def font(self, column):
         if self.modified:
@@ -444,13 +446,13 @@ class TreeModel(QtCore.QAbstractItemModel):
         self.setupModelData(self.rootItem)
 
     def setupModelData(self, root):
-        idaapi.show_wait_box("Looking for classes...")
+        # idaapi.show_wait_box("Looking for classes...")
 
         all_virtual_functions.clear()
         all_virtual_tables.clear()
 
         classes = []
-        for ordinal in range(1, idaapi.get_ordinal_qty(idaapi.cvar.idati)):
+        for ordinal in range(1, helper.get_ordinal_limit(idaapi.cvar.idati)):
             result = Class.create_class(ordinal)
             if result:
                 classes.append(result)
@@ -463,7 +465,7 @@ class TreeModel(QtCore.QAbstractItemModel):
                 class_item.appendChild(vtable_item)
             root.appendChild(class_item)
 
-        idaapi.hide_wait_box()
+        # idaapi.hide_wait_box()
 
     def flags(self, index):
         if index.isValid():

@@ -98,7 +98,7 @@ class ScannedVariableObject(ScannedObject):
                 logger.debug("Successful")
                 hx_view.set_lvar_type(lvar[0], tinfo)
             else:
-                logger.warn("Failed to find previously scanned local variable {} from {}".format(
+                logger.warning("Failed to find previously scanned local variable {} from {}".format(
                     self.name, helper.to_hex(self.expression_address)))
 
 
@@ -110,7 +110,7 @@ class ScannedStructureMemberObject(ScannedObject):
 
     def apply_type(self, tinfo):
         if self._applicable:
-            logger.warn("Changing type of structure field is not yet implemented. Address - {}".format(
+            logger.warning("Changing type of structure field is not yet implemented. Address - {}".format(
                 helper.to_hex(self.expression_address)))
 
 
@@ -125,7 +125,7 @@ class SearchVisitor(api.ObjectVisitor):
 
         if obj.tinfo and not helper.is_legal_type(obj.tinfo):
             cexpr_ea = helper.find_asm_address(cexpr, self.parents)
-            logger.warn("Variable obj.name has weird type at {}".format(helper.to_hex(cexpr_ea)))
+            logger.warning("Variable obj.name has weird type at {}".format(helper.to_hex(cexpr_ea)))
             return
         if cexpr.type.is_ptr():
             member = self.__extract_member_from_pointer(cexpr, obj)
@@ -156,7 +156,7 @@ class SearchVisitor(api.ObjectVisitor):
                 else:
                     tinfo = const.DUMMY_FUNC
                 return temporary_structure.Member(offset, tinfo, scan_obj, self.__origin)
-            # logger.warn("Want to see this ea - {},".format(Helper.to_hex(cexpr_ea)))
+            # logger.warning("Want to see this ea - {},".format(Helper.to_hex(cexpr_ea)))
 
         if not tinfo or tinfo.equals_to(const.VOID_TINFO) or tinfo.equals_to(const.CONST_VOID_TINFO):
             return temporary_structure.VoidMember(offset, scan_obj, self.__origin)

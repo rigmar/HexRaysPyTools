@@ -5,6 +5,7 @@ import idaapi
 
 from . import const
 import HexRaysPyTools.forms as forms
+from HexRaysPyTools.core import helper
 
 
 class til_t(ctypes.Structure):
@@ -31,6 +32,8 @@ def _enable_library_ordinals(library_num):
         print("[ERROR] Failed to enable ordinals")
         return
 
+    print("HexRaysPyTools DLL: {}".format(dll))
+
     dll.get_idati.restype = ctypes.POINTER(til_t)
     idati = dll.get_idati()
     dll.enable_numbered_types(idati.contents.base[library_num], True)
@@ -55,17 +58,17 @@ def choose_til():
     library_num = library_chooser.Show(True)
     if library_num != -1:
         selected_library = list_type_library[library_num][0]    # type: idaapi.til_t
-        max_ordinal = idaapi.get_ordinal_qty(selected_library)
+        max_ordinal = helper.get_ordinal_limit(selected_library)
         if max_ordinal == idaapi.BADORD:
             _enable_library_ordinals(library_num - 1)
-            max_ordinal = idaapi.get_ordinal_qty(selected_library)
+            max_ordinal = helper.get_ordinal_limit(selected_library)
         print("[DEBUG] Maximal ordinal of lib {0} = {1}".format(selected_library.name, max_ordinal))
         return selected_library, max_ordinal, library_num == 0
 
 
 def import_type(library, name):
     if library.name != idaapi.cvar.idati.name:
-        last_ordinal = idaapi.get_ordinal_qty(idaapi.cvar.idati)
-        type_id = idaapi.import_type(library, -1, name)  # tid_t
+        last_ordinal = helper.get_ordinal_limit(idaapi.cvar.idati)
+        type_id = helper._import_type(name, library)
         if type_id != idaapi.BADORD:
             return last_ordinal
