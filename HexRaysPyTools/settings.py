@@ -146,7 +146,7 @@ def load_settings():
         PROPAGATE_THROUGH_ALL_NAMES, \
         STORE_XREFS,                 \
         SCAN_ANY_TYPE,               \
-        TEMPLATED_TYPES_FILE,        \
+        TEMPLATED_TYPES_FILE, \
         hex_pytools_config
 
     config = configparser.ConfigParser()
@@ -176,7 +176,7 @@ class Config(object):
                         "Renames":{"RenameOther":True,"RenameInside":True,"RenameOutside":True,"RenameUsingAssert":True,"PropagateName":True,"TakeTypeAsName":True, "RenameMemberFromFunctionName":False},
                         "Scanners":{"ShallowScanVariable":True,"DeepScanVariable":True,"RecognizeShape":True,"DeepScanReturn":True,"DeepScanFunctions":True},
                         "Struct xref collector":{"StructXrefCollector":True},
-                        "Struct xref representation":{"FindFieldXrefs":True},
+                        "Struct xref representation":{"FindFieldXrefs":False},
                         "Structs by size":{"GetStructureBySize":True},
                         "Swap if":{"SilentIfSwapper":True, "SwapThenElse":True},
                         "Virtual table creation":{"CreateVtable":True,"DecompileCreateVtable":True,"DisassembleCreateVtable":True},
