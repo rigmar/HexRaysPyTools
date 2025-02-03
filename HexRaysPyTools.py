@@ -8,6 +8,8 @@ import HexRaysPyTools.settings as settings
 from HexRaysPyTools.callbacks import hx_callback_manager, action_manager
 from HexRaysPyTools.core.struct_xrefs import XrefStorage
 from HexRaysPyTools.core.temporary_structure import TemporaryStructureModel
+from HexRaysPyTools.core.helper import init_hexrays
+from HexRaysPyTools.forms import StructureBuilder
 
 
 class MyPlugin(idaapi.plugin_t):
@@ -19,7 +21,7 @@ class MyPlugin(idaapi.plugin_t):
 
     @staticmethod
     def init():
-        if not idaapi.init_hexrays_plugin():
+        if not init_hexrays():
             logging.error("Failed to initialize Hex-Rays SDK")
             return idaapi.PLUGIN_SKIP
 
@@ -32,10 +34,14 @@ class MyPlugin(idaapi.plugin_t):
 
     @staticmethod
     def run(*args):
-        pass
+        tform = idaapi.find_widget("Structure Builder")
+        if tform:
+            idaapi.activate_widget(tform, True)
+        else:
+            StructureBuilder(cache.temporary_structure).Show()
 
     @staticmethod
-    def term():
+    def term(*args):
         action_manager.finalize()
         hx_callback_manager.finalize()
         XrefStorage().close()

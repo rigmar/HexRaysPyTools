@@ -1,6 +1,4 @@
 import idaapi
-import ida_struct
-import ida_funcs
 
 import idc
 import ida_hexrays

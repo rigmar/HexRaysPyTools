@@ -81,14 +81,16 @@ Need restart Ida Pro for settings applying!
             self.config.update(self.eChooser.GetItems())
 
 
-CONFIG_FILE_PATH = os.path.join(ida_diskio.get_user_idadir(), 'cfg', 'HexRaysPyTools.cfg')
-CONFIG_DIRECTORY = os.path.join(ida_diskio.get_user_idadir(), 'cfg')
+CONFIG_FILE_PATH = os.path.join(ida_diskio.idadir(""),"cfg", "HexRaysPyTools.cfg")
+CONFIG_DIRECTORY = os.path.join(ida_diskio.idadir(""),"cfg")
+
 try:
     f = open(CONFIG_FILE_PATH, "ab")
     f.close()
 except:
     logger.error("Cannot open config file.")
     CONFIG_FILE_PATH = os.path.join(ida_diskio.get_user_idadir(), "cfg", "HexRaysPyTools.cfg")
+    CONFIG_DIRECTORY = os.path.join(ida_diskio.get_user_idadir(), 'cfg')
     if not os.path.exists(os.path.join(ida_diskio.get_user_idadir(), "cfg")):
         os.makedirs(os.path.join(ida_diskio.get_user_idadir(), "cfg"))
     f = open(CONFIG_FILE_PATH, "ab")
@@ -169,7 +171,7 @@ class Config(object):
                         "Main plugins UI forms":{"ShowGraph":True, "ShowStructureBuilder":True},
                         "Function signature modifiers":{"ConvertToUsercall":True, "AddRemoveReturn":True,"RemoveArgument":True},
                         "Guess allocation":{"GuessAllocation":True},
-                        "Member double click":{"MemberDoubleClick":True, "JumpByFieldName":True},
+                        "Member double click":{"MemberDoubleClick":True, "JumpByFieldName":True, "JumpByComment":False, "JumpByNetnodeVT":True},
                         "Negative offsets":{"SelectContainingStructure":True},
                         "New field creation":{"CreateNewField":True},
                         "Recasts":{"RecastItemLeft":True,"RecastItemRight":True,"RecastStructMember":True},
@@ -186,21 +188,21 @@ class Config(object):
     def __init__(self):
         # global hex_pytools_config
         self.section = "HexRaysPyTools features"
-        self.file_path = os.path.join(ida_diskio.idadir(""),"cfg", "HexRaysPyTools.cfg")
+        self.file_path = CONFIG_FILE_PATH
         self.reader = configparser.ConfigParser()
         self.reader.optionxform = str
         # self.config_dict = {}
         # hex_pytools_config = self
-        try:
-            f = open(self.file_path, "ab")
-            f.close()
-        except:
-            logger.error("Cannot open config file.")
-            self.file_path = os.path.join(os.environ["APPDATA"],"IDA Pro","cfg", "HexRaysPyTools.cfg")
-            if not os.path.exists(os.path.join(os.environ["APPDATA"], "IDA Pro", "cfg")):
-                os.makedirs(os.path.join(os.environ["APPDATA"], "IDA Pro", "cfg"))
-            f = open(self.file_path, "ab")
-            f.close()
+        # try:
+        #     f = open(self.file_path, "ab")
+        #     f.close()
+        # except:
+        #     logger.error("Cannot open config file.")
+        #     self.file_path = os.path.join(os.environ["APPDATA"],"IDA Pro","cfg", "HexRaysPyTools.cfg")
+        #     if not os.path.exists(os.path.join(os.environ["APPDATA"], "IDA Pro", "cfg")):
+        #         os.makedirs(os.path.join(os.environ["APPDATA"], "IDA Pro", "cfg"))
+        #     f = open(self.file_path, "ab")
+        #     f.close()
 
         f = open(self.file_path, "r")
         self.reader.read_file(f)

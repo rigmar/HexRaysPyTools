@@ -1,5 +1,10 @@
 # no_compat_file
 import collections
+
+import ida_hexrays
+import ida_idp
+import ida_loader
+
 from HexRaysPyTools.log import Log
 
 import ida_bytes
@@ -19,6 +24,31 @@ import HexRaysPyTools.forms as forms
 
 logger = Log.get_logger()
 
+
+def init_hexrays():
+    ALL_DECOMPILERS = {
+        ida_idp.PLFM_386: "hexx64",
+        ida_idp.PLFM_ARM: "hexarm",
+        ida_idp.PLFM_PPC: "hexppc",
+        ida_idp.PLFM_MIPS: "hexmips",
+        ida_idp.PLFM_RISCV: "hexrv",
+        ida_idp.PLFM_ARC: "HEXARC",
+    }
+    cpu = ida_idp.ph.id
+    decompiler = ALL_DECOMPILERS.get(cpu, None)
+    if not decompiler:
+        print("No known decompilers for architecture with ID: %d" % ida_idp.ph.id)
+        return False
+    if ida_ida.inf_is_64bit():
+        if cpu == ida_idp.PLFM_386:
+            decompiler = "hexx64"
+        else:
+            decompiler += "64"
+    if ida_loader.load_plugin(decompiler) and ida_hexrays.init_hexrays_plugin():
+        return True
+    else:
+        print('Couldn\'t load or initialize decompiler: "%s"' % decompiler)
+        return False
 
 def GetXrefCnt(ea):
     i = 0
