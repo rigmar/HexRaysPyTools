@@ -1,17 +1,13 @@
-import ida_kernwin
-from PyQt5 import QtCore, QtWidgets
 import os
-
+import ida_kernwin
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 import idaapi
 from HexRaysPyTools.settings import get_config
 import HexRaysPyTools.core.vtables_netnode as vtables_netnode
-
-
-import ida_kernwin
 import idc
 import re
+
 
 
 class MyChoose(idaapi.Choose):

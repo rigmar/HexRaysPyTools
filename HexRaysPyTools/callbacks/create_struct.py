@@ -1,10 +1,11 @@
-import ida_struct
+import ida_typeinf
 import idaapi, ida_pro, idc, ida_kernwin
 import struct
 
 from . import actions
 import HexRaysPyTools.core.const as Const
 from HexRaysPyTools.settings import hex_pytools_config
+import HexRaysPyTools.core.helper as helper
 
 class SimpleCreateStruct(actions.HexRaysPopupAction):
     name = "my:CreateStruct"
@@ -65,7 +66,7 @@ class SimpleCreateStruct(actions.HexRaysPopupAction):
                 ret += b"\x32" * pad
             return ret
 
-        struct_id = ida_struct.get_struc_id(name)
+        struct_id = idc.get_struc_id(name)
         type_ord = idaapi.get_type_ordinal(my_ti,name)
         if struct_id != idaapi.BADADDR or type_ord != 0:
             answer =  ida_kernwin.ask_yn(0, "A structure for %s already exists. Are you sure you want to remake it?" % name)
@@ -88,18 +89,27 @@ class SimpleCreateStruct(actions.HexRaysPopupAction):
         ret = idaapi.set_numbered_type(my_ti,idx,0x5,name,typ_type, typ_fields, "", b"", 0)
 
         if (ida_pro.IDA_SDK_VERSION < 700 and ret != 0) or (ida_pro.IDA_SDK_VERSION >= 700 and ret != 1):
-            idaapi.import_type(idaapi.cvar.idati,-1, name)
-            sid = idaapi.get_struc_id(name)
-            sptr = idaapi.get_struc(sid)
-            align_shift = 0
-            if fAllign:
-                if field_size == 2:
-                    align_shift = 1
-                elif field_size == 4:
-                    align_shift = 2
-                elif field_size == 8:
-                    align_shift = 3
-            idaapi.set_struc_align(sptr, align_shift)
+            tinfo = ida_typeinf.tinfo_t()
+            if tinfo.get_named_type(None, name):
+                sid = idc.get_struc_id(name)
+                sptr = helper.get_struc(sid)
+                align_shift = 0
+                if fAllign:
+                    if field_size == 2:
+                        align_shift = 1
+                    elif field_size == 4:
+                        align_shift = 2
+                    elif field_size == 8:
+                        align_shift = 3
+                tif = ida_typeinf.tinfo_t()
+                if tif.get_type_by_tid(sid):
+                    udt = ida_typeinf.udt_type_data_t()
+                    tif.get_udt_details(udt)
+                    udt.align = 1 << align_shift
+                    tif.create_udt(udt)
+                    tif.set_numbered_type(None, tif.get_ordinal(), 0x5, name)
+            else:
+                Warning("Failed to get named type: %s" % name)
         else:
             Warning("set_numbered_type error")
 

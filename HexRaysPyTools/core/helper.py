@@ -4,10 +4,12 @@ from HexRaysPyTools.log import Log
 
 import ida_bytes
 import ida_funcs
-import ida_struct
+import ida_typeinf
 import idaapi
 import idc
 import idautils
+import ida_ida
+import ida_idaapi
 
 import HexRaysPyTools.core.cache as cache
 import HexRaysPyTools.core.const as const
@@ -27,7 +29,7 @@ def GetXrefCnt(ea):
 def convert_name(vt_name):
     if vt_name.startswith("0x"):
         vt_sid = int(vt_name.split(' ')[0], 16)
-        return ida_struct.get_struc_name(vt_sid)
+        return ida_typeinf.get_struc_name(vt_sid)
     return vt_name
 
 def is_imported_ea(ea):
@@ -37,7 +39,7 @@ def is_imported_ea(ea):
 
 
 def is_code_ea(ea):
-    if const.INF_PROCNAME == "arm":
+    if const.INF_PROCNAME == "ARM":
         # In case of ARM code in THUMB mode we sometimes get pointers with thumb bit set
         flags = idaapi.get_full_flags(ea & -2)  # flags_t
     else:
@@ -55,7 +57,7 @@ def get_ptr(ea):
     if const.EA64:
         return idaapi.get_64bit(ea)
     ptr = idaapi.get_32bit(ea)
-    if const.INF_PROCNAME == "arm":
+    if const.INF_PROCNAME == "ARM":
         ptr &= -2    # Clear thumb bit
     return ptr
 
@@ -192,7 +194,7 @@ def get_nice_pointed_object(tinfo):
         name = tinfo.dstr()
         if name[0] == 'P':
             pointed_tinfo = idaapi.tinfo_t()
-            if pointed_tinfo.get_named_type(idaapi.cvar.idati, name[1:]):
+            if pointed_tinfo.get_named_type(idaapi.get_idati(), name[1:]):
                 if tinfo.get_pointed_object().equals_to(pointed_tinfo):
                     return pointed_tinfo
     except TypeError:
@@ -231,12 +233,29 @@ def get_fields_at_offset(tinfo, offset):
     result = [t.copy() for t in result]
     return result
 
-
-def is_legal_type(tinfo):
+def is_legal_type(tinfo: idaapi.tinfo_t):
     tinfo.clr_const()
     if tinfo.is_ptr() and tinfo.get_pointed_object().is_forward_decl():
-        return tinfo.get_pointed_object().get_size() == idaapi.BADSIZE
-    return settings.SCAN_ANY_TYPE or bool([x for x in const.LEGAL_TYPES if x.equals_to(tinfo)])
+        is_bad_size = tinfo.get_pointed_object().get_size() == idaapi.BADSIZE
+        print(f"[DEBUG] Type {tinfo.dstr()} is forward declaration: {is_bad_size}")
+        return is_bad_size
+    if tinfo.is_unknown():
+        print(f"[DEBUG] Type {tinfo.dstr()} is unknown")
+        return False
+    return True
+
+# This function after 9.0 nearly always returns False
+# def is_legal_type(tinfo: idaapi.tinfo_t):
+#     tinfo.clr_const()
+
+#     if tinfo.is_ptr() and tinfo.get_pointed_object().is_forward_decl():
+#         is_bad_size = tinfo.get_pointed_object().get_size() == idaapi.BADSIZE
+#         print(f"[DEBUG] Type {tinfo.dstr()} is forward declaration: {is_bad_size}")
+#         return is_bad_size
+#     legal_type = settings.SCAN_ANY_TYPE or bool([x for x in const.LEGAL_TYPES if x.equals_to(tinfo)])
+#     legal_type = tinfo.is_ptr()
+#     print(f"[DEBUG] Type {tinfo.dstr()} is legal: {legal_type}")
+#     return legal_type
 
 
 def search_duplicate_fields(udt_data):
@@ -265,9 +284,9 @@ def import_structure(name, tinfo):
     if idc.parse_decl(cdecl_typedef, idaapi.PT_TYP) is None:
         return 0
 
-    previous_ordinal = idaapi.get_type_ordinal(idaapi.cvar.idati, name)
+    previous_ordinal = idaapi.get_type_ordinal(idaapi.get_idati(), name)
     if previous_ordinal:
-        idaapi.del_numbered_type(idaapi.cvar.idati, previous_ordinal)
+        idaapi.del_numbered_type(idaapi.get_idati(), previous_ordinal)
         ordinal = idaapi.idc_set_local_type(previous_ordinal, cdecl_typedef, idaapi.PT_TYP)
     else:
         ordinal = idaapi.idc_set_local_type(-1, cdecl_typedef, idaapi.PT_TYP)
@@ -434,6 +453,12 @@ def my_cexpr_t(*args, **kwargs):
             cexpr._set_z(kwargs['z'])
     return cexpr
 
+def import_type(type_name):
+    t = idaapi.tinfo_t()
+    if not t.get_named_type(idaapi.cvar.idati, type_name):
+        return idaapi.BADADDR
+    return t.force_tid()
+
 def get_func_ea(name):
     for ea in idautils.Functions():
         n = ida_funcs.get_func_name(ea)
@@ -503,3 +528,102 @@ def choose_tinfo(title):
 
         tif = __get_tinfo(name)
         return tif
+
+def get_struc(struct_tid):
+    tif = ida_typeinf.tinfo_t()
+    if tif.get_type_by_tid(struct_tid):
+        if tif.is_struct():
+            return tif
+    return ida_idaapi.BADADDR
+
+
+def get_member(tif, offset):
+    if not tif.is_struct():
+        return None
+
+    udm = ida_typeinf.udm_t()
+    udm.offset = offset * 8
+    idx = tif.find_udm(udm, ida_typeinf.STRMEM_OFFSET)
+    if idx != -1:
+        return udm
+
+    return None
+
+def get_member_by_fullname(fullname):
+    udm = ida_typeinf.udm_t()
+    idx = ida_typeinf.get_udm_by_fullname(udm, fullname)
+    if  idx == -1:
+        return None
+    else:
+        return udm
+
+def get_member_struc(fullname):
+    udm = ida_typeinf.udm_t()
+    idx = ida_typeinf.get_udm_by_fullname(udm, fullname)
+    if idx != -1:
+        if udm.type.is_struct():
+            return ida_typeinf.tinfo_t(udm.type)
+    return None
+
+def get_member_tinfo(tif, udm):
+    if tif and udm:
+        ida_typeinf.copy_tinfo_t(tif, udm.type)
+        return True
+    return False
+
+
+def get_member_by_name(tif, name):
+    if not tif.is_struct():
+        return None
+
+    udm = ida_typeinf.udm_t()
+    udm.name = name
+    idx = tif.find_udm(udm, ida_typeinf.STRMEM_NAME)
+    if idx != -1:
+        return udm
+    return None
+
+def get_struc_idx(id):
+    tif = ida_typeinf.tinfo_t()
+    if tif.get_type_by_tid(id):
+        if tif.is_struct():
+            return tif.get_ordinal()
+    return -1
+
+def get_struc_qty():
+    count = 0
+    limit = ida_typeinf.get_ordinal_limit()
+    for i in range(1, limit):
+        tif = ida_typeinf.tinfo_t()
+        if not tif.get_numbered_type(i, ida_typeinf.BTF_STRUCT):
+            continue
+        else:
+            count += 1
+    return count
+
+def is_varmember(udm):
+    return udm.is_varmember()
+
+# def is_special_member(member_id):
+#     tif = ida_typeing.tinfo_t()
+#     udm = ida_typeinf.udm_t()
+#     if tif.get_udm_by_tid(udm, member_id) != -1:
+#         return udm.is_special_member()
+#     return False
+#
+# def is_varstr(str_id):
+#     tif = ida_typeinf.tinfo_t()
+#     if tif.get_type_by_tid(str_id):
+#         return tif.is_varstruct()
+#     return False
+
+def get_sptr(udm):
+    tif = udm.type
+    if tif.is_udt() and tif.is_struct():
+        return tif
+    else:
+        return None
+
+def set_struc_listed(tif, is_listed):
+    if tif.is_struct():
+        ida_typeinf.set_type_choosable(None, tif.get_ordinal(), is_listed)

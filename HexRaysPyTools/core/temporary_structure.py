@@ -1,6 +1,7 @@
 import bisect
 import itertools
 from PyQt5 import QtCore, QtGui, QtWidgets
+from functools import reduce
 
 import ida_name
 import idaapi
@@ -13,6 +14,7 @@ from . import const
 from . import helper
 from . import templated_types
 import HexRaysPyTools.api as api
+import HexRaysPyTools.core.type_library as type_library
 from HexRaysPyTools.forms import MyChoose
 
 def log2(v):
@@ -245,6 +247,7 @@ class VirtualFunction:
         udt_member.offset = self.offset
         udt_member.name = self.name
         udt_member.size = const.EA_SIZE
+        udt_member.cmt = "0x{:08X}".format(self.address)
         return udt_member
 
     def get_information(self):
@@ -538,7 +541,7 @@ class Member(AbstractMember):
             return
         _, tp, fld = result
         tinfo = idaapi.tinfo_t()
-        tinfo.deserialize(idaapi.cvar.idati, tp, fld, None)
+        tinfo.deserialize(idaapi.get_idati(), tp, fld, None)
         self.tinfo = tinfo
         self.is_array = False
 

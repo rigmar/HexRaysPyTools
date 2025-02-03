@@ -36,7 +36,7 @@ def choose_til():
     return None
 
 def _choose_structure_by_size(size):
-    result = choose_til()
+    result = type_library.choose_til()
     if result:
         selected_library, max_ordinal, is_local_type = result
         matched_types = []

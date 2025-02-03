@@ -1,4 +1,6 @@
+# encoding:utf-8
 import idaapi
+import idc
 
 from . import actions
 import HexRaysPyTools.core.helper as helper
@@ -48,7 +50,7 @@ class FindFieldXrefs(actions.HexRaysPopupAction):
             return
 
         xref = result[idx]
-        idaapi.jumpto(xref.func_ea + xref.offset)
+        idaapi.open_pseudocode(xref.func_ea + xref.offset, False)
 
 if get_config().get_opt("Struct xref representation", "FindFieldXrefs"):
     actions.action_manager.register(FindFieldXrefs())

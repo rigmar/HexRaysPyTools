@@ -61,7 +61,7 @@ def init():
         assert False, "Unexpected IDAPython API"
     INF_PROCNAME = cpuname
     INF_IS_BE = is_be
-    
+
     if is_64bit:
         INF_IS_64BIT = True
         INF_IS_32BIT = False

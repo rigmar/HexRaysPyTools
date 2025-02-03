@@ -5,7 +5,16 @@ import os
 import toml
 import HexRaysPyTools.settings as settings
 
+# fDebug = True
+# if fDebug:
+#     import pydevd_pycharm
+#
+# if fDebug == True:
+#     pydevd_pycharm.settrace('127.0.0.1', port=31337, stdoutToServer=True, stderrToServer=True, suspend=False)
+#
+
 class TemplatedTypes:
+
     def __init__(self):
         self.toml_path = ""
         self._types_dict = {}

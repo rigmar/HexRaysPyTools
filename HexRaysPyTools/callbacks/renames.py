@@ -1,4 +1,4 @@
-import re
+﻿import re
 from HexRaysPyTools.log import Log
 
 import idaapi
@@ -422,17 +422,17 @@ class TakeTypeAsName(actions.HexRaysPopupAction):
             if ctree_item.it.op in (idaapi.cot_memptr, idaapi.cot_memref):
                 tp_name = idaapi.remove_pointer(ctree_item.e.type).dstr()
                 struct_name = idaapi.remove_pointer(ctree_item.e.x.type).dstr()
-                if idaapi.get_type_ordinal(idaapi.cvar.idati, struct_name) and idaapi.get_type_ordinal(idaapi.cvar.idati, tp_name):
-                    sid = idaapi.get_struc_id(struct_name)
+                if idaapi.get_type_ordinal(idaapi.get_idati(), struct_name) and idaapi.get_type_ordinal(idaapi.get_idati(), tp_name):
+                    sid = idc.get_struc_id(struct_name)
                     if sid != idaapi.BADADDR:
-                        sptr = idaapi.get_struc(sid)
-                        mptr = idaapi.get_member(sptr, ctree_item.e.m)
-                        if tp_name not in idaapi.get_member_name(mptr.id):
+                        field_name = idc.get_member_name(sid, ctree_item.e.m)
+                        if tp_name not in field_name:
                             return True
+
             elif ctree_item.it.op == idaapi.cot_var:
                 lv = cfunc.get_lvars()[ctree_item.e.v.idx]
                 lv_type_name = idaapi.remove_pointer(lv.tif).dstr()
-                if idaapi.get_type_ordinal(idaapi.cvar.idati,lv_type_name) and lv_type_name not in lv.name:
+                if idaapi.get_type_ordinal(idaapi.get_idati(),lv_type_name) and lv_type_name not in lv.name:
                     return True
 
     def activate(self, ctx):
@@ -443,9 +443,9 @@ class TakeTypeAsName(actions.HexRaysPopupAction):
             tp_name = "p" if item.type.is_ptr() else "o_"
             tp_name = tp_name + idaapi.remove_pointer(item.type).dstr()
             struct_name = idaapi.remove_pointer(item.x.type).dstr()
-            sid = idaapi.get_struc_id(struct_name)
-            sptr = idaapi.get_struc(sid)
-            idaapi.set_member_name(sptr,offset,tp_name)
+            sid = idc.get_struc_id(struct_name)
+            idc.set_member_name(sid,offset,tp_name)
+
             hx_view.refresh_view(True)
         elif item.op == idaapi.cot_var:
             lv = hx_view.cfunc.get_lvars()[item.v.idx]

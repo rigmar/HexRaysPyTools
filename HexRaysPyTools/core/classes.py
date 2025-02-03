@@ -66,7 +66,7 @@ class VirtualMethod(object):
             split = value.split('(')
             if len(split) == 2:
                 value = split[0] + ' ' + self.name + '(' + split[1] + ';'
-                if idaapi.parse_decl(tinfo, idaapi.cvar.idati, value, idaapi.PT_TYP) is not None:
+                if idaapi.parse_decl(tinfo, idaapi.get_idati(), value, idaapi.PT_TYP) is not None:
                     if tinfo.is_func():
                         tinfo.create_ptr(tinfo)
                         if tinfo.dstr() != self.tinfo.dstr():
@@ -111,7 +111,7 @@ class VirtualMethod(object):
         func_tinfo = self.tinfo.get_pointed_object()
         class_tinfo = idaapi.tinfo_t()
         if func_tinfo.get_func_details(func_data) and func_tinfo.get_nargs() and \
-                class_tinfo.get_named_type(idaapi.cvar.idati, name):
+                class_tinfo.get_named_type(idaapi.get_idati(), name):
             class_tinfo.create_ptr(class_tinfo)
             first_arg_tinfo = func_data[0].type
             if (first_arg_tinfo.is_ptr() and first_arg_tinfo.get_pointed_object().is_udt()) or \
@@ -140,7 +140,7 @@ class VirtualMethod(object):
             return
 
         if helper.decompile_function(address):
-            idaapi.jumpto(address, 0)
+            idaapi.open_pseudocode(address, 0)
         else:
             idaapi.jumpto(address)
 
@@ -176,7 +176,7 @@ class VirtualTable(object):
         if self.modified:
             vtable_tinfo = idaapi.tinfo_t()
             udt_data = idaapi.udt_type_data_t()
-            vtable_tinfo.get_numbered_type(idaapi.cvar.idati, self.ordinal)
+            vtable_tinfo.get_numbered_type(idaapi.get_idati(), self.ordinal)
             vtable_tinfo.get_udt_details(udt_data)
             self.tinfo = vtable_tinfo
             self.name = vtable_tinfo.dstr()
@@ -198,7 +198,7 @@ class VirtualTable(object):
                     udt_member.type = virtual_function.tinfo
                     virtual_function.commit()
                 final_tinfo.create_udt(udt_data, idaapi.BTF_STRUCT)
-                final_tinfo.set_numbered_type(idaapi.cvar.idati, self.ordinal, idaapi.NTF_REPLACE, self.name)
+                final_tinfo.set_numbered_type(idaapi.get_idati(), self.ordinal, idaapi.NTF_REPLACE, self.name)
                 self.modified = False
             else:
                 print("[ERROR] Something have been modified in Local types. Please refresh this view")
@@ -220,12 +220,11 @@ class VirtualTable(object):
 
     @staticmethod
     def create(tinfo, class_):
-        ordinal = idaapi.get_type_ordinal(idaapi.cvar.idati, tinfo.dstr())
+        ordinal = idaapi.get_type_ordinal(idaapi.get_idati(), tinfo.dstr())
         if ordinal == 0:
-            # if idc.import_type(idaapi.cvar.idati, -1, tinfo.dstr(), 0) == idaapi.BADNODE:
-            if helper._import_type(tinfo.dstr()) == idaapi.BADNODE:
+            if idaapi.import_type(idaapi.get_idati(), -1, tinfo.dstr(), 0) == idaapi.BADNODE:
                 raise ImportError("unable to import type to idb ({})".format(tinfo.dstr()))
-            ordinal = idaapi.get_type_ordinal(idaapi.cvar.idati, tinfo.dstr())
+            ordinal = idaapi.get_type_ordinal(idaapi.get_idati(), tinfo.dstr())
 
         result = all_virtual_tables.get(ordinal)
         if result:
@@ -236,12 +235,12 @@ class VirtualTable(object):
             result = VirtualTable(ordinal, tinfo, class_)
             virtual_functions = [VirtualMethod.create(func.type.copy(), func.name, result) for func in udt_data]
             result.virtual_functions = virtual_functions
-            all_virtual_tables[ordinal] = result
+            all_virtual_functions[ordinal] = result
         return result
 
     def get_class_tinfo(self):
         if len(self.class_) == 1:
-            return self.class_[0].tinfo
+            return self.class_.tinfo
 
     def setData(self, column, value):
         if column == 0:
@@ -293,7 +292,7 @@ class Class(object):
     @staticmethod
     def create_class(ordinal):
         tinfo = idaapi.tinfo_t()
-        tinfo.get_numbered_type(idaapi.cvar.idati, ordinal)
+        tinfo.get_numbered_type(idaapi.get_idati(), ordinal)
         vtables = {}
         if tinfo.is_struct():
             udt_data = idaapi.udt_type_data_t()
@@ -339,7 +338,7 @@ class Class(object):
             tinfo = idaapi.tinfo_t()
             self.tinfo.get_udt_details(udt_data)
             tinfo.create_udt(udt_data, idaapi.BTF_STRUCT)
-            tinfo.set_numbered_type(idaapi.cvar.idati, self.ordinal, idaapi.NTF_REPLACE, self.name)
+            tinfo.set_numbered_type(idaapi.get_idati(), self.ordinal, idaapi.NTF_REPLACE, self.name)
             self.modified = False
 
     def set_first_argument_type(self, class_name):
@@ -390,7 +389,7 @@ class Class(object):
     @property
     def tinfo(self):
         tinfo = idaapi.tinfo_t()
-        tinfo.get_numbered_type(idaapi.cvar.idati, self.ordinal)
+        tinfo.get_numbered_type(idaapi.get_idati(), self.ordinal)
         return tinfo
 
     def open_function(self):
@@ -446,13 +445,13 @@ class TreeModel(QtCore.QAbstractItemModel):
         self.setupModelData(self.rootItem)
 
     def setupModelData(self, root):
-        # idaapi.show_wait_box("Looking for classes...")
+        idaapi.show_wait_box("Looking for classes...")
 
         all_virtual_functions.clear()
         all_virtual_tables.clear()
 
         classes = []
-        for ordinal in range(1, helper.get_ordinal_limit(idaapi.cvar.idati)):
+        for ordinal in range(1, idaapi.get_ordinal_count(idaapi.get_idati())):
             result = Class.create_class(ordinal)
             if result:
                 classes.append(result)
@@ -465,7 +464,7 @@ class TreeModel(QtCore.QAbstractItemModel):
                 class_item.appendChild(vtable_item)
             root.appendChild(class_item)
 
-        # idaapi.hide_wait_box()
+        idaapi.hide_wait_box()
 
     def flags(self, index):
         if index.isValid():

@@ -2,9 +2,12 @@ import ida_bytes
 import ida_funcs
 import ida_kernwin
 import ida_nalt
-import ida_struct
+import ida_typeinf
 import idaapi
+import ida_ida
+import idc
 
+import HexRaysPyTools.core.helper as helper
 from HexRaysPyTools.callbacks import actions
 from HexRaysPyTools.core.helper import convert_name, GetXrefCnt
 from HexRaysPyTools.netnode import Netnode
@@ -70,7 +73,7 @@ class VtableMembersChooser(idaapi.Choose):
         self.items = []
         self.icon = 5
         self.vt_name = vt_name
-        if not idaapi.get_inf_structure().is_64bit():
+        if not ida_ida.inf_is_64bit():
             self.field_size = 4
         else:
             self.field_size = 8
@@ -82,18 +85,18 @@ class VtableMembersChooser(idaapi.Choose):
         n = Netnode(vt_node_name)
 
         l = n[self.vt_name]
-        sptr = ida_struct.get_struc(ida_struct.get_struc_id(self.vt_name))
+        sptr = helper.get_struc(ida_typeinf.get_struc_id(self.vt_name))
         for i in range(len(l)):
             item = self.generate_item(i, sptr, l[i])
             self.items.append(item)
 
     def generate_item(self, i, sptr, func_offset):
         field_offset = i * self.field_size
-        member_id = ida_struct.get_member_id(sptr, field_offset)
+        member_id = ida_typeinf.get_member_id(sptr, field_offset)
         if member_id == idaapi.BADADDR:
             field_name = "NONE"
         else:
-            field_name = ida_struct.get_member_name(member_id)
+            field_name = idc.get_member_name(member_id)
         func_addr = func_offset
         if func_addr is not None:
             func_addr += ida_nalt.get_imagebase()
@@ -104,7 +107,7 @@ class VtableMembersChooser(idaapi.Choose):
 
     def OnClose(self):
         net = Netnode(vt_node_name)
-        vt_sid = ida_struct.get_struc_id(self.vt_name)
+        vt_sid = ida_typeinf.get_struc_id(self.vt_name)
         if vt_sid in net:
             net[vt_sid] = net[self.vt_name]
 
@@ -158,17 +161,17 @@ class VtableMembersChooser(idaapi.Choose):
             l = netnode[self.vt_name]
             l[n] = func_offset
             netnode[self.vt_name] = l
-            sptr = ida_struct.get_struc(ida_struct.get_struc_id(self.vt_name))
+            sptr = helper.get_struc(ida_typeinf.get_struc_id(self.vt_name))
             new_item = self.generate_item(n, sptr, func_offset)
             self.items[n] = new_item
             self.obj.RefreshField(self.obj.controls['cEChooser'])
 
     def OnInsertLine(self, n):
         print("insert line")
-        sptr = ida_struct.get_struc(ida_struct.get_struc_id(self.vt_name))
+        sptr = helper.get_struc(ida_typeinf.get_struc_id(self.vt_name))
         netnode = Netnode(vt_node_name)
         l = netnode[self.vt_name]
-        if ida_struct.get_struc_size(sptr) // self.field_size > len(l):
+        if ida_typeinf.get_struc_size(sptr) // self.field_size > len(l):
             func_addr = ida_kernwin.ask_addr(0, "Enter function addr")
             if func_addr is not None:
                 if func_addr != 0:
@@ -210,7 +213,7 @@ class VtableChooser(idaapi.Choose):
         n = Netnode(vt_node_name)
         for name in n.keys():
             if type(name) != str:
-                name = "0x%08X" % name + " (%s)" % ida_struct.get_struc_name(name)
+                name = "0x%08X" % name + " (%s)" % ida_typeinf.get_struc_name(name)
             self.items.append([name])
 
     def OnClose(self):
@@ -248,7 +251,7 @@ class VtableChooser(idaapi.Choose):
         vt_name = self.items[n][0]
         if vt_name.startswith("0x"):
             vt_sid = int(vt_name.split(' ')[0], 16)
-            vt_name = ida_struct.get_struc_name(vt_sid)
+            vt_name = ida_typeinf.get_struc_name(vt_sid)
         if vt_name:
             f = VtableMembersUI(vt_name)
             f.Go()
@@ -354,7 +357,7 @@ def bound_vtable(addr):
     name = ida_kernwin.ask_str("", 0, "Please enter the vtable struct name")
     if name is None:
         return
-    struct_id = idaapi.get_struc_id(name)
+    struct_id = idc.get_struc_id(name)
     # print struct_id
     if struct_id != idaapi.BADADDR:
 
@@ -378,7 +381,7 @@ def bound_vtable(addr):
             offsets.append(c - ida_nalt.get_imagebase())
             i = i + 1
             addr = addr + ptr_size
-        sptr = ida_struct.get_struc(struct_id)
+        sptr = helper.get_struc(struct_id)
         if sptr.memqty == len(offsets):
             n = Netnode("$ VTables")
             n[name] = offsets

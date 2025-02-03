@@ -190,8 +190,8 @@ class RecastItemLeft(actions.HexRaysPopupAction):
 
         elif isinstance(ri, RecastStructure):
             tinfo = idaapi.tinfo_t()
-            tinfo.get_named_type(idaapi.cvar.idati, ri.structure_name)
-            ordinal = idaapi.get_type_ordinal(idaapi.cvar.idati, ri.structure_name)
+            tinfo.get_named_type(idaapi.get_idati(), ri.structure_name)
+            ordinal = idaapi.get_type_ordinal(idaapi.get_idati(), ri.structure_name)
             if ordinal == 0:
                 return 0
 
@@ -207,7 +207,7 @@ class RecastItemLeft(actions.HexRaysPopupAction):
                 tinfo.get_udt_details(udt_data)
                 udt_data[idx].type = ri.recast_tinfo
                 tinfo.create_udt(udt_data, idaapi.BTF_STRUCT)
-                tinfo.set_numbered_type(idaapi.cvar.idati, ordinal, idaapi.NTF_REPLACE, ri.structure_name)
+                tinfo.set_numbered_type(idaapi.get_idati(), ordinal, idaapi.NTF_REPLACE, ri.structure_name)
         else:
             raise NotImplementedError
 
@@ -317,9 +317,9 @@ def get_branch(cfunc,item):
     return rc
 
 def is_gap(structure_name,field_offset):
-    sid = idaapi.get_struc_id(structure_name)
+    sid = idc.get_struc_id(structure_name)
     if sid != idaapi.BADADDR:
-        sptr = idaapi.get_struc(sid)
+        sptr = helper.get_struc(sid)
         mptr = idaapi.get_member(sptr, field_offset)
         if mptr:
             return False
@@ -327,10 +327,9 @@ def is_gap(structure_name,field_offset):
             return True
 
 def get_struct_member_type(structure_name, field_offset):
-    logger.debug("[get_struct_member_type] structure_name = %s, field_offset = 0x%02X"%(structure_name, field_offset))
-    sid = idaapi.get_struc_id(structure_name)
+    sid = idc.get_struc_id(structure_name)
     if sid != idaapi.BADADDR:
-        sptr = idaapi.get_struc(sid)
+        sptr = helper.get_struc(sid)
         mptr = idaapi.get_member(sptr, field_offset)
         if mptr:
             tif = idaapi.tinfo_t()
@@ -531,7 +530,8 @@ class RecastStructMember(actions.HexRaysPopupAction):
                 struct_name = target.cexpr.x.type._print()
             logger.debug("[process_branch] struct_name = %s"%struct_name)
             new_type = RecastStructMember.resolve_references(new_type,ref_cnt,ptr_cnt)
-            if new_type.is_ptr() and idaapi.cot_idx not in opcodes and (is_gap(struct_name,target.cexpr.m + off_delta) or get_struct_member_type(struct_name,target.cexpr.m + off_delta).is_array()):
+            struct_member_type = get_struct_member_type(struct_name, target.cexpr.m + off_delta)
+            if new_type.is_ptr() and idaapi.cot_idx not in opcodes and (is_gap(struct_name,target.cexpr.m + off_delta) or (struct_member_type!=None and struct_member_type.is_array())):
                 new_type = new_type.get_pointed_object()
             return RECAST_STRUCTURE, struct_name, target.cexpr.m + off_delta, new_type
 
@@ -541,11 +541,11 @@ class RecastStructMember(actions.HexRaysPopupAction):
         if result:
             if result[0] == RECAST_HELPER:
                 struct_name, member_offset, cast_helper = result[1:]
-                sid = idaapi.get_struc_id(struct_name)
+                sid = idc.get_struc_id(struct_name)
                 if sid != idaapi.BADADDR:
-                    sptr = idaapi.get_struc(sid)
+                    sptr = helper.get_struc(sid)
                     mptr = idaapi.get_member(sptr,member_offset)
-                    member_name = idaapi.get_member_name(mptr.id)
+                    member_name = idc.get_member_name(mptr.id,member_offset)
                     member_size = idaapi.get_member_size(mptr)
                     if cast_helper.startswith("BYTE") or cast_helper in ("HIBYTE", "LOBYTE"):
                         idaapi.del_struc_member(sptr, member_offset)
@@ -559,9 +559,9 @@ class RecastStructMember(actions.HexRaysPopupAction):
 
             elif result[0] == RECAST_STRUCTURE:
                 structure_name, field_offset, new_type = result[1:]
-                sid = idaapi.get_struc_id(structure_name)
+                sid = idc.get_struc_id(structure_name)
                 if sid != idaapi.BADADDR:
-                    sptr = idaapi.get_struc(sid)
+                    sptr = helper.get_struc(sid)
                     mptr = idaapi.get_member(sptr, field_offset)
                     if mptr is None:
                         if idaapi.add_struc_member(sptr, "field_%X" % field_offset, field_offset,
