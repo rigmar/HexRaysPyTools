@@ -1,18 +1,17 @@
 import logging
 
-import idaapi
-
 import HexRaysPyTools.core.cache as cache
 import HexRaysPyTools.core.const as const
 import HexRaysPyTools.settings as settings
-from HexRaysPyTools.callbacks import hx_callback_manager, action_manager
+import idaapi
+from HexRaysPyTools.callbacks import action_manager, hx_callback_manager
 from HexRaysPyTools.core.struct_xrefs import XrefStorage
 from HexRaysPyTools.core.temporary_structure import TemporaryStructureModel
 from HexRaysPyTools.core.helper import init_hexrays
 from HexRaysPyTools.forms import StructureBuilder
 
 
-class MyPlugin(idaapi.plugin_t):
+class HexRaysPyTools(idaapi.plugin_t):
     flags = 0
     comment = "Plugin for automatic classes reconstruction"
     help = "See https://github.com/igogo-x86/HexRaysPyTools/blob/master/readme.md"
@@ -50,7 +49,7 @@ class MyPlugin(idaapi.plugin_t):
 
 def PLUGIN_ENTRY():
     settings.load_settings()
-    logging.basicConfig(format='[%(levelname)s] %(message)s\t(%(module)s:%(funcName)s)')
+    logging.basicConfig(format="[%(levelname)s] %(message)s\t(%(module)s:%(funcName)s)")
     logging.root.setLevel(settings.DEBUG_MESSAGE_LEVEL)
     idaapi.notify_when(idaapi.NW_OPENIDB, cache.initialize_cache)
-    return MyPlugin()
+    return HexRaysPyTools()
