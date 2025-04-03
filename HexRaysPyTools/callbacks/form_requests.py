@@ -87,6 +87,5 @@ idaapi.attach_action_to_menu('View/Open subviews/Local types', show_classes.name
 
 if get_config().get_opt("Main plugins UI forms", "ShowGraph"):
     actions.action_manager.register(ShowGraph())
-if get_config().get_opt("Main plugins UI forms", "ShowGraph"):
-    actions.action_manager.register(ShowGraph())
-actions.action_manager.register(ShowStructureBuilder())	
+if get_config().get_opt("Main plugins UI forms", "ShowStructureBuilder"):
+    actions.action_manager.register(ShowStructureBuilder())

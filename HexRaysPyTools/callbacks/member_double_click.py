@@ -1,3 +1,4 @@
+import ida_typeinf
 import idaapi
 
 import idc
@@ -72,7 +73,7 @@ class MemberDoubleClick(callbacks.HexRaysEventHandler):
                 if method_offset is not None and vtable_tinfo:
                     n = Netnode("$ VTables")
                     vt_name = vtable_tinfo.get_type_name()
-                    struct_id = idaapi.get_struc_id(vt_name)
+                    struct_id = ida_typeinf.get_named_type_tid(vt_name)
                     if vt_name and vt_name in n:
                         l = n[vt_name]
                         if not const.EA64:

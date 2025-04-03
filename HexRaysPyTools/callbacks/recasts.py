@@ -197,7 +197,7 @@ class RecastItemLeft(actions.HexRaysPopupAction):
 
             udt_member = idaapi.udt_member_t()
             udt_member.offset = ri.field_offset * 8
-            idx = tinfo.find_udt_member(udt_member, idaapi.STRMEM_OFFSET)
+            idx = tinfo.find_udm(udt_member, idaapi.STRMEM_OFFSET)
             if udt_member.offset != ri.field_offset * 8:
                 print("[Info] Can't handle with arrays yet")
             elif udt_member.type.get_size() != ri.recast_tinfo.get_size():
@@ -320,7 +320,7 @@ def is_gap(structure_name,field_offset):
     sid = idc.get_struc_id(structure_name)
     if sid != idaapi.BADADDR:
         sptr = helper.get_struc(sid)
-        mptr = idaapi.get_member(sptr, field_offset)
+        mptr = helper.get_member(sptr, field_offset)
         if mptr:
             return False
         else:
@@ -330,11 +330,9 @@ def get_struct_member_type(structure_name, field_offset):
     sid = idc.get_struc_id(structure_name)
     if sid != idaapi.BADADDR:
         sptr = helper.get_struc(sid)
-        mptr = idaapi.get_member(sptr, field_offset)
-        if mptr:
-            tif = idaapi.tinfo_t()
-            idaapi.get_member_tinfo(tif ,mptr)
-            return tif
+        udm = helper.get_member(sptr, field_offset)
+        if udm:
+            return udm.type
         return None
 
 
@@ -543,51 +541,46 @@ class RecastStructMember(actions.HexRaysPopupAction):
                 struct_name, member_offset, cast_helper = result[1:]
                 sid = idc.get_struc_id(struct_name)
                 if sid != idaapi.BADADDR:
-                    sptr = helper.get_struc(sid)
-                    mptr = idaapi.get_member(sptr,member_offset)
-                    member_name = idc.get_member_name(mptr.id,member_offset)
-                    member_size = idaapi.get_member_size(mptr)
+                    struct_tif = helper.get_struc(sid)
+                    udm = helper.get_member(struct_tif,member_offset)
+                    member_name = udm.name
+                    member_size = udm.size
                     if cast_helper.startswith("BYTE") or cast_helper in ("HIBYTE", "LOBYTE"):
-                        idaapi.del_struc_member(sptr, member_offset)
+                        helper.del_struc_member(struct_tif, member_offset)
                         for i in range(member_size):
-                            idc.add_struc_member(sptr.id,member_name if i == 0 else "field_%X"%(member_offset + i), member_offset+i, idaapi.FF_DATA|idaapi.FF_BYTE,idaapi.BADADDR, 1)
+                            idc.add_struc_member(sid,member_name if i == 0 else "field_%X"%(member_offset + i), member_offset+i, idaapi.FF_DATA|idaapi.FF_BYTE,idaapi.BADADDR, 1)
                     if cast_helper in ("LOWORD","HIWORD"):
-                        idaapi.del_struc_member(sptr, member_offset)
+                        helper.del_struc_member(struct_tif, member_offset)
                         for i in range(0,member_size,2):
-                            idc.add_struc_member(sptr.id,member_name if i == 0 else "field_%X"%(member_offset + i), member_offset+i, idaapi.FF_DATA|idaapi.FF_WORD,idaapi.BADADDR, 2)
+                            idc.add_struc_member(sid,member_name if i == 0 else "field_%X"%(member_offset + i), member_offset+i, idaapi.FF_DATA|idaapi.FF_WORD,idaapi.BADADDR, 2)
                     hx_view.refresh_view(True)
 
             elif result[0] == RECAST_STRUCTURE:
                 structure_name, field_offset, new_type = result[1:]
                 sid = idc.get_struc_id(structure_name)
                 if sid != idaapi.BADADDR:
-                    sptr = helper.get_struc(sid)
-                    mptr = idaapi.get_member(sptr, field_offset)
-                    if mptr is None:
-                        if idaapi.add_struc_member(sptr, "field_%X" % field_offset, field_offset,
-                                                   idaapi.FF_DATA | idaapi.FF_BYTE, None, 1) != 0:
+                    struct_tif = helper.get_struc(sid)
+                    udm = helper.get_member(struct_tif, field_offset)
+                    if udm is None:
+                        if idc.add_struc_member(sid, "field_%X" % field_offset, field_offset,
+                                                   idaapi.FF_DATA | idaapi.FF_BYTE, idaapi.BADADDR,1) != 0:
                             print ("Error on add_struc_member!")
-                        mptr = idaapi.get_member(sptr, field_offset)
-                    elif mptr.soff != field_offset:
-                        if not idaapi.del_struc_member(sptr, mptr.soff):
+                    elif udm.offset != field_offset*8:
+                        if not helper.del_struc_member(struct_tif, udm.offset//8):
                             print ("Error on del_struc_member!")
-                        if idaapi.add_struc_member(sptr, "field_%X" % field_offset, field_offset,
-                                                   idaapi.FF_DATA | idaapi.FF_BYTE, None, 1) != 0:
+                        if idc.add_struc_member(struct_tif, "field_%X" % field_offset, field_offset,
+                                                   idaapi.FF_DATA | idaapi.FF_BYTE, idaapi.BADADDR, 1) != 0:
                             print ("Error on add_struc_member!")
-                        mptr = idaapi.get_member(sptr, field_offset)
                     else:
-                        tif = idaapi.tinfo_t()
-                        idaapi.get_member_tinfo(tif,mptr)
+                        tif = udm.type
                         if tif.is_array():
-                            if not idaapi.del_struc_member(sptr, mptr.soff):
+                            if not helper.del_struc_member(struct_tif, udm.offset//8):
                                 print ("Error on del_struc_member!")
-                            if idaapi.add_struc_member(sptr, "field_%X" % field_offset, field_offset,
-                                                       idaapi.FF_DATA | idaapi.FF_BYTE, None, 1) != 0:
+                            if idc.add_struc_member(struct_tif, "field_%X" % field_offset, field_offset,
+                                                       idaapi.FF_DATA | idaapi.FF_BYTE, idaapi.BADADDR, 1) != 0:
                                 print ("Error on add_struc_member!")
-                            mptr = idaapi.get_member(sptr, field_offset)
-                    rc = idaapi.set_member_tinfo(sptr, mptr, field_offset, new_type,
-                                                  idaapi.SET_MEMTI_MAY_DESTROY)
-                    if rc != 1:
+                    rc = helper.set_member_type(struct_tif, field_offset, new_type, ida_typeinf.ETF_MAY_DESTROY)
+                    if rc != 0:
                         print ("set_member_tinfo2 rc = %d" % rc)
                     hx_view.refresh_view(True)
 

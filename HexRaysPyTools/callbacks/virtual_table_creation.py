@@ -200,8 +200,6 @@ def create_vtable(addr):
     #     fSize = idaapi.FF_WORD
     #     refinf = idaapi.refinfo_t(idaapi.REF_OFF16)
 
-    opinf = idaapi.opinfo_t()
-    opinf.ri = refinf
     while (get_addr_val(addr) != 0 and idaapi.is_func(ida_bytes.get_full_flags(get_addr_val(addr))) and (GetXrefCnt(addr) == 0 or i == 0)) is True:
         c = get_addr_val(addr)
         methName = ""
@@ -257,8 +255,8 @@ def create_vtable(addr):
             if e == -1:
                 l = 0
                 while e == -1:
-                    e = idaapi.add_struc_member(sptr, (methName + "_%d"%l), i * ptr_size, idaapi.FF_0OFF | fSize | idaapi.FF_DATA,
-                                                opinf, ptr_size)
+                    e = idc.add_struc_member(sptr, (methName + "_%d"%l), i * ptr_size, idaapi.FF_0OFF | fSize | idaapi.FF_DATA,
+                                                -1, ptr_size)
                     l = l + 1
                     if l > 50:
                         ida_kernwin.warning("Wrong function name!")

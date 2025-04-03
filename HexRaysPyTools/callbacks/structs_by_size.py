@@ -1,7 +1,11 @@
 import idaapi
+from impacket.examples.utils import target_regex
+
 from . import actions
 import HexRaysPyTools.forms as forms
 import HexRaysPyTools.core.type_library as type_library
+from ..core import helper
+
 
 def choose_til():
     # type: () -> (idaapi.til_t, int, bool)
@@ -14,9 +18,9 @@ def choose_til():
 
     list_type_library = [(idati, idati.name, idati.desc)]
     for idx in range(idati.nbases):
-        type_library = idati.base(idx)  # type: idaapi.til_t
-        if type_library is not None:
-            list_type_library.append((type_library, type_library.name, type_library.desc))
+        target_til = idati.base(idx)  # type: idaapi.til_t
+        if target_til is not None:
+            list_type_library.append((target_til, target_til.name, target_til.desc))
 
     library_chooser = forms.MyChoose(
         list([[x[1], x[2]] for x in list_type_library]),
@@ -27,10 +31,10 @@ def choose_til():
     library_num = library_chooser.Show(True)
     if library_num != -1:
         selected_library = list_type_library[library_num][0]  # type: idaapi.til_t
-        max_ordinal = idaapi.get_ordinal_qty(selected_library)
+        max_ordinal = helper.get_ordinal_qty(selected_library)
         if max_ordinal == idaapi.BADORD:
-            _enable_library_ordinals(library_num - 1)
-            max_ordinal = idaapi.get_ordinal_qty(selected_library)
+            type_library._enable_library_ordinals(library_num - 1)
+            max_ordinal = helper.get_ordinal_qty(selected_library)
         print("[DEBUG] Maximal ordinal of lib {0} = {1}".format(selected_library.name, max_ordinal))
         return selected_library, max_ordinal, library_num == 0
     return None

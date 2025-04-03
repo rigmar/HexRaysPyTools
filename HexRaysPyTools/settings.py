@@ -178,7 +178,7 @@ class Config(object):
                         "Renames":{"RenameOther":True,"RenameInside":True,"RenameOutside":True,"RenameUsingAssert":True,"PropagateName":True,"TakeTypeAsName":True, "RenameMemberFromFunctionName":False},
                         "Scanners":{"ShallowScanVariable":True,"DeepScanVariable":True,"RecognizeShape":True,"DeepScanReturn":True,"DeepScanFunctions":True},
                         "Struct xref collector":{"StructXrefCollector":True},
-                        "Struct xref representation":{"FindFieldXrefs":False},
+                        "Struct xref representation":{"FindFieldXrefs":True},
                         "Structs by size":{"GetStructureBySize":True},
                         "Swap if":{"SilentIfSwapper":True, "SwapThenElse":True},
                         "Virtual table creation":{"CreateVtable":True,"DecompileCreateVtable":True,"DisassembleCreateVtable":True},

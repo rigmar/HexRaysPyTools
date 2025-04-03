@@ -64,7 +64,7 @@ def get_tinfo(name):
     idati = idaapi.get_idati()
     ti = idaapi.tinfo_t()
 
-    for ordinal in range(1, helper.get_ordinal_limit(idati)+1):
+    for ordinal in range(1, helper.get_ordinal_limit(idati)):
         if ti.get_numbered_type(idati, ordinal) and ti.dstr() == name:
             return ti
     return None

@@ -4,6 +4,7 @@ import collections
 import ida_hexrays
 import ida_idp
 import ida_loader
+from idc import BADADDR
 
 from HexRaysPyTools.log import Log
 
@@ -59,7 +60,7 @@ def GetXrefCnt(ea):
 def convert_name(vt_name):
     if vt_name.startswith("0x"):
         vt_sid = int(vt_name.split(' ')[0], 16)
-        return ida_typeinf.get_struc_name(vt_sid)
+        return ida_typeinf.get_tid_name(vt_sid)
     return vt_name
 
 def is_imported_ea(ea):
@@ -527,7 +528,7 @@ def get_ordinal_qty(ti: "til_t"=None) -> "uint32":
     if hasattr(idaapi, 'get_ordinal_limit'):
         return idaapi.get_ordinal_limit(ti)
     else:
-        return idaapi.get_ordinal_qty(ti)
+        return ida_typeinf.get_ordinal_limit(ti)
 
 def get_ordinal_limit(ti: "til_t"=None) -> "uint32":
     return get_ordinal_qty(ti)
@@ -578,6 +579,30 @@ def get_member(tif, offset):
         return udm
 
     return None
+
+def del_struc_member(tif: ida_typeinf.tinfo_t, offset):
+
+    if not tif.is_struct():
+        return ida_typeinf.TERR_SAVE_ERROR
+
+    udm = ida_typeinf.udm_t()
+    udm.offset = offset * 8
+    idx = tif.find_udm(udm, ida_typeinf.STRMEM_OFFSET)
+    if idx != -1:
+        return tif.del_udm(idx)
+    return ida_typeinf.TERR_NOT_FOUND
+
+def set_member_type(tif: ida_typeinf.tinfo_t, offset, new_type: ida_typeinf.tinfo_t, flags = 0):
+    if not tif.is_struct():
+        return ida_typeinf.TERR_SAVE_ERROR
+
+    udm = ida_typeinf.udm_t()
+    udm.offset = offset * 8
+    idx = tif.find_udm(udm, ida_typeinf.STRMEM_OFFSET)
+    if idx != -1:
+        return tif.set_udm_type(idx, new_type, flags)
+    return ida_typeinf.TERR_NOT_FOUND
+
 
 def get_member_by_fullname(fullname):
     udm = ida_typeinf.udm_t()
@@ -657,3 +682,11 @@ def get_sptr(udm):
 def set_struc_listed(tif, is_listed):
     if tif.is_struct():
         ida_typeinf.set_type_choosable(None, tif.get_ordinal(), is_listed)
+
+def get_member_id_by_udm(sid, udm):
+    tif = ida_typeinf.tinfo_t(sid)
+    udm_idx = tif.find_udm(udm)
+    if udm_idx != -1:
+        mid = tif.get_udm_tid(udm_idx)
+        return mid
+    return BADADDR
