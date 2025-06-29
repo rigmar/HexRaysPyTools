@@ -151,13 +151,13 @@ class StructureBuilder(idaapi.PluginForm):
         grid_box.addWidget(btn_recognize, 0, 8)
         grid_box.addWidget(btn_clear, 1, 8)
 
-        stack = QtWidgets.QStackedWidget()
-        stack.addWidget(struct_view)
-        stack.addWidget(self.stl_view)
+        self.stack = QtWidgets.QStackedWidget()
+        self.stack.addWidget(self.stl_view)
+        self.stack.addWidget(struct_view)
 
         vertical_box = QtWidgets.QVBoxLayout()
-        vertical_box.addWidget(struct_view)
-        vertical_box.addWidget(stack)
+        # vertical_box.addWidget(struct_view)
+        vertical_box.addWidget(self.stack)
         vertical_box.addLayout(grid_box)
         self.parent.setLayout(vertical_box)
 
@@ -172,8 +172,8 @@ class StructureBuilder(idaapi.PluginForm):
         btn_unpack.clicked.connect(lambda: self.structure_model.unpack_substructure(struct_view.selectedIndexes()))
         btn_remove.clicked.connect(lambda: self.structure_model.remove_items(struct_view.selectedIndexes()))
         btn_resolve.clicked.connect(lambda: self.structure_model.resolve_types())
-        btn_stl.clicked.connect(lambda: stack.setCurrentIndex(1))
-        btn_struct.clicked.connect(lambda: stack.setCurrentIndex(0))
+        btn_stl.clicked.connect(lambda: self.show_stl())
+        btn_struct.clicked.connect(lambda: self.show_struct_bulder())
         btn_load.clicked.connect(lambda: self.structure_model.load_struct())
         btn_clear.clicked.connect(lambda: self.structure_model.clear())
         btn_recognize.clicked.connect(lambda: self.structure_model.recognize_shape(struct_view.selectedIndexes()))
@@ -183,6 +183,14 @@ class StructureBuilder(idaapi.PluginForm):
         self.stl_list.currentRowChanged.connect(self.update_stl_form)
         btn_reload_stl_list.clicked.connect(self.reload_stl_list)
         btn_open_stl_toml.clicked.connect(self.open_dialog_stl_file)
+
+    def show_stl(self):
+        self.stack.setCurrentIndex(0)
+        self.parent.update()
+
+    def show_struct_bulder(self):
+        self.stack.setCurrentIndex(1)
+        self.parent.update()
 
     def update_stl_form(self):
         # wrapped in a try/except, as exception is thrown when TOML is refreshed
