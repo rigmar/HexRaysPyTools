@@ -20,6 +20,10 @@ Plugin for IDA Pro
     * [API](#api)
 * [Presentations](#presentations)
 
+# Current state
+Most of the changes for IDA 9 compatibility, mine and from other people, have been added to the code.
+Now it need to test and fish out the remaining porting issues.
+
 # About fork!
 
 It's my fork of plugin with tuning for my convenience of work. Changes:
