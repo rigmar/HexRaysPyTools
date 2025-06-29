@@ -1,5 +1,4 @@
 import idaapi
-from impacket.examples.utils import target_regex
 
 from . import actions
 import HexRaysPyTools.forms as forms
