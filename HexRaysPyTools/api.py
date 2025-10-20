@@ -40,7 +40,12 @@ class ScanObject(object):
             result.ea = ScanObject.get_expression_address(cfunc, cexpr)
             return result
         elif cexpr.op == idaapi.cot_memptr:
-            t = cexpr.x.type.get_pointed_object()
+            logger.debug(f"cexpr.x.type = {cexpr.x.type._print()}")
+            if cexpr.x.type.is_ptr():
+                t = cexpr.x.type.get_pointed_object()
+            else:
+                t = cexpr.x.type
+            logger.debug(f"t = {t}, t.print() = {t._print()}")
             result = StructPtrObject(t.dstr(), cexpr.m)
             result.name = helper.get_member_name(t, cexpr.m)
         elif cexpr.op == idaapi.cot_memref:

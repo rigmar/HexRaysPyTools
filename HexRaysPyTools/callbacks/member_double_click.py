@@ -42,6 +42,12 @@ class MemberDoubleClick(callbacks.HexRaysEventHandler):
         idaapi.jumpto(func_ea)
 
     def _handle_member_pointer(self, item):
+        if  item.e.x.op in (ida_hexrays.cot_memref, ida_hexrays.cot_memptr):
+            vtable_tinfo = item.e.x.type
+            if vtable_tinfo.is_ptr():
+                vtable_tinfo = vtable_tinfo.get_pointed_object()
+            if vtable_tinfo._print()[-5:] == "_vtbl":
+                return vtable_tinfo, item.e.m, item.e.x.x.type.get_pointed_object(), item.e.x.m
         if item.e.x.op == idaapi.cot_memref and item.e.x.x.op == idaapi.cot_memptr:
             return item.e.x.type.get_pointed_object(), item.e.m, item.e.x.x.x.type.get_pointed_object(), item.e.x.x.m
         elif item.e.x.op == idaapi.cot_memptr:
@@ -61,7 +67,9 @@ class MemberDoubleClick(callbacks.HexRaysEventHandler):
         vtable_offset = None
         if item.citype == idaapi.VDI_EXPR and item.e.op in (idaapi.cot_memptr, idaapi.cot_memref):
             if item.e.x.op in (idaapi.cot_memref, idaapi.cot_memptr):
-                vtable_tinfo, method_offset, class_tinfo, vtable_offset = self._handle_member_pointer(item)
+                r = self._handle_member_pointer(item)
+                if r:
+                    vtable_tinfo, method_offset, class_tinfo, vtable_offset = r
             else:
                 if item.e.x is not None and item.e.x.op != idaapi.cot_empty:
                     vtable_tinfo = item.e.x.type
@@ -73,7 +81,7 @@ class MemberDoubleClick(callbacks.HexRaysEventHandler):
                 if method_offset is not None and vtable_tinfo:
                     n = Netnode("$ VTables")
                     vt_name = vtable_tinfo.get_type_name()
-                    struct_id = ida_typeinf.get_named_type_tid(vt_name)
+                    type_ord = ida_typeinf.get_type_ordinal(ida_typeinf.get_idati(), vt_name)
                     if vt_name and vt_name in n:
                         l = n[vt_name]
                         if not const.EA64:
@@ -83,8 +91,8 @@ class MemberDoubleClick(callbacks.HexRaysEventHandler):
                         if method_offset % ptr_size == 0 and method_offset // ptr_size < len(l) and l[method_offset // ptr_size] is not None:
                             idaapi.jumpto(l[method_offset // ptr_size] + idaapi.get_imagebase())
                             return 1
-                    elif struct_id != idaapi.BADADDR and struct_id in n:
-                        l = n[struct_id]
+                    elif type_ord != idaapi.BADADDR and type_ord in n:
+                        l = n[type_ord]
                         if not const.EA64:
                             ptr_size = 4
                         else:
@@ -106,11 +114,12 @@ class MemberDoubleClick(callbacks.HexRaysEventHandler):
                         return 1
 
                 if get_config().get_opt("Member double click", "JumpByFieldName"):
-                    func_name = helper.get_member_name(vtable_tinfo, method_offset)
-                    func_ea = helper.choose_virtual_func_address(func_name, class_tinfo, vtable_offset)
-                    if func_ea is not None:
-                        idaapi.jumpto(func_ea)
-                        return 1
+                    if method_offset:
+                        func_name = helper.get_member_name(vtable_tinfo, method_offset)
+                        func_ea = helper.choose_virtual_func_address(func_name, class_tinfo, vtable_offset)
+                        if func_ea is not None:
+                            idaapi.jumpto(func_ea)
+                            return 1
         return 0
 
     def _process_commented_address(self, struct_tinfo, func_offset, item):

@@ -76,7 +76,7 @@ Need restart Ida Pro for settings applying!
     def Do(self):
         self.Compile()
         ok = self.Execute()
-        logger.debug("self.Execute = ", ok)
+        logger.debug(f"self.Execute = {ok}")
         if ok == 1:
             self.config.update(self.eChooser.GetItems())
 

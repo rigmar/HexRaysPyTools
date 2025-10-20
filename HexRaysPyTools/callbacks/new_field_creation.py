@@ -15,14 +15,17 @@ logger = Log.get_logger()
 def _is_gap_field(cexpr):
     if cexpr.op not in (idaapi.cot_memptr, idaapi.cot_memref):
         return False
-    struct_type = cexpr.x.type
+    struct_type = cexpr.x.type.copy()
     struct_type.remove_ptr_or_array()
-    return helper.get_member_name(struct_type, cexpr.m)[0:3] == "gap"
+    member_name = helper.get_member_name(struct_type, cexpr.m)
+    if member_name:
+        return member_name[0:3] == "gap"
+    return False
 
 
 class CreateNewField(actions.HexRaysPopupAction):
     description = "Create New Field"
-    hotkey = "Ctrl+F"
+    hotkey = ""
 
     def __init__(self):
         super(CreateNewField, self).__init__()
@@ -30,8 +33,8 @@ class CreateNewField(actions.HexRaysPopupAction):
     def check(self, hx_view):
         if hx_view.item.citype != idaapi.VDI_EXPR:
             return False
-
-        return _is_gap_field(hx_view.item.it.to_specific_type)
+        r = _is_gap_field(hx_view.item.it.to_specific_type)
+        return r
 
     def activate(self, ctx):
         # import pydevd_pycharm
@@ -138,5 +141,4 @@ class CreateNewField(actions.HexRaysPopupAction):
 
 if get_config().get_opt("New field creation", "CreateNewField"):
     actions.action_manager.register(CreateNewField())
-
 # TODO: All this stuff can be done automatically when we either use ctrl+F5 or regular F5

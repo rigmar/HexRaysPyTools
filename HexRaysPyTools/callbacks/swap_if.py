@@ -92,8 +92,6 @@ class SwapThenElse(actions.HexRaysPopupAction):
         return idaapi.AST_DISABLE_FOR_WIDGET
 
 
-actions.action_manager.register(SwapThenElse())
-
 
 class SwapThenElseVisitor(idaapi.ctree_parentee_t):
     def __init__(self, inverted):

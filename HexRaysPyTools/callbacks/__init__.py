@@ -16,3 +16,4 @@ from . import swap_if
 from . import virtual_table_creation
 from . import create_struct
 from . import vt_rename_sync
+from . import rename_hooks

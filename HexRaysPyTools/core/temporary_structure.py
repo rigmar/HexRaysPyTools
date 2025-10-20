@@ -1,6 +1,10 @@
 import bisect
 import itertools
-from PyQt5 import QtCore, QtGui, QtWidgets
+import ida_ida
+if ida_ida.inf_get_version() < 920:
+    from PyQt5 import QtCore, QtGui, QtWidgets
+else:
+    from PySide6 import QtCore, QtGui, QtWidgets
 from functools import reduce
 
 import ida_name

@@ -1,4 +1,7 @@
 from collections import namedtuple
+
+import ida_hexrays
+
 from HexRaysPyTools.log import Log
 
 import ida_typeinf
@@ -149,6 +152,8 @@ class RecastItemLeft(actions.HexRaysPopupAction):
             self.set_label('Recast Variable "{0}" to {1}'.format(ri.local_variable.name, ri.recast_tinfo.dstr()))
         elif isinstance(ri, RecastGlobalVariable):
             gvar_name = idaapi.get_name(ri.global_variable_ea)
+            if len(gvar_name) > 20:
+                gvar_name = gvar_name[:20] + "..."
             self.set_label('Recast Global Variable "{0}" to {1}'.format(gvar_name, ri.recast_tinfo.dstr()))
         elif isinstance(ri, RecastArgument):
             self.set_label("Recast Argument")
@@ -320,8 +325,8 @@ def is_gap(structure_name,field_offset):
     sid = idc.get_struc_id(structure_name)
     if sid != idaapi.BADADDR:
         sptr = helper.get_struc(sid)
-        mptr = helper.get_member(sptr, field_offset)
-        if mptr:
+        udm = helper.get_member(sptr, field_offset)
+        if udm:
             return False
         else:
             return True
@@ -332,7 +337,7 @@ def get_struct_member_type(structure_name, field_offset):
         sptr = helper.get_struc(sid)
         udm = helper.get_member(sptr, field_offset)
         if udm:
-            return udm.type
+            return udm.type.copy()
         return None
 
 
@@ -353,17 +358,19 @@ class RecastStructMember(actions.HexRaysPopupAction):
     def __init__(self):
         idaapi.action_handler_t.__init__(self)
 
+
     @staticmethod
     def check(hx_view):
-        if fDebug:
-            pydevd_pycharm.settrace('127.0.0.1', port=31337, stdoutToServer=True, stderrToServer=True, suspend=False)
+        logger.debug("Entering RecastStructMember.check")
+        # import pydevd_pycharm
+        # pydevd_pycharm.settrace('127.0.0.1', port=31337, stdoutToServer=True, stderrToServer=True, suspend=True)
         cfunc = hx_view.cfunc
         ctree_item = hx_view.item
         if ctree_item.citype == idaapi.VDI_EXPR and ctree_item.it.op in (idaapi.cot_memptr, idaapi.cot_memref):
             parent = cfunc.body.find_parent_of(ctree_item.it)
             if parent and parent.op == idaapi.cot_call and parent.cexpr.x.op == idaapi.cot_helper:
                 cast_helper = parent.to_specific_type.x.helper
-                helpers = ["HIBYTE", "LOBYTE", "BYTE", "HIWORD", "LOWORD"]
+                helpers = ["HIBYTE", "LOBYTE", "BYTE", "HIWORD", "LOWORD","LODWORD","HIDWORD"]
                 for h in helpers:
                     if cast_helper.startswith(h):
                         return RECAST_HELPER, idaapi.remove_pointer(ctree_item.e.x.type).dstr(), ctree_item.e.m, cast_helper
@@ -386,12 +393,12 @@ class RecastStructMember(actions.HexRaysPopupAction):
             item = nodes[idx]
             if item.op == idaapi.cot_cast:
                 if new_type is None:
-                    new_type = item.cexpr.type
+                    new_type = item.cexpr.type.copy()
             elif item.op == idaapi.cot_ref:
                 fDoDeref = True
             elif item.op in (idaapi.cot_add, idaapi.cot_idx):
                 if new_type is None and item.op == idaapi.cot_add:
-                    new_type = item.cexpr.type
+                    new_type = item.cexpr.type.copy()
                 num = item.cexpr.y.n._value if item.cexpr.x.index == nodes[idx + 1].index else item.to_specific_type.x.n._value
                 off_delta += (num * idaapi.remove_pointer(item.cexpr.type).get_size())
             idx += 1
@@ -405,11 +412,12 @@ class RecastStructMember(actions.HexRaysPopupAction):
     @staticmethod
     def resolve_references(tp, ref_cnt, ptr_cnt):
         delta = ref_cnt - ptr_cnt
-        if delta > 0:
+        if delta < 0:
+            delta = abs(delta)
             while delta:
                 tp = idaapi.remove_pointer(tp)
                 delta -= 1
-        elif delta < 0:
+        elif delta > 0:
             delta = abs(delta)
             while delta:
                 tif = idaapi.tinfo_t()
@@ -435,7 +443,7 @@ class RecastStructMember(actions.HexRaysPopupAction):
                 next_node = next_node.x.cexpr
             else:
                 break
-        return RecastStructMember.resolve_references(next_node.type, ref_cnt, ptr_cnt)
+        return RecastStructMember.resolve_references(next_node.type.copy(), ref_cnt, ptr_cnt)
 
 
     @staticmethod
@@ -477,6 +485,7 @@ class RecastStructMember(actions.HexRaysPopupAction):
 
     @staticmethod
     def process_branch(nodes, idx = 0):
+        logger.debug("Enter process_branch")
         target = nodes[-1]
         # types = collections.OrderedDict()
         opcodes = []
@@ -488,10 +497,12 @@ class RecastStructMember(actions.HexRaysPopupAction):
         while nodes[idx] != target:
             item = nodes[idx]
             opcodes.append(item.op)
+            if item.op in (ida_hexrays.cot_memptr, ida_hexrays.cot_memref):
+                return None
             if item.op == idaapi.cot_cast:
                 # types[item] = item.cexpr.type
                 if new_type is None:
-                    new_type = item.cexpr.type
+                    new_type = item.cexpr.type.copy()
             elif item.op == idaapi.cot_asg:
                 # asg_type = item.cexpr.type
                 second_type = RecastStructMember.process_asg_second_branch(nodes[idx:])
@@ -503,15 +514,15 @@ class RecastStructMember(actions.HexRaysPopupAction):
             elif item.op == idaapi.cot_ptr:
                 # types[item] = item.cexpr.type
                 if new_type is None:
-                    new_type = item.cexpr.type
+                    new_type = item.cexpr.type.copy()
                 ptr_cnt += 1
             elif item.op in (idaapi.cot_add, idaapi.cot_idx):
                 # types[item] = item.cexpr.type
                 if item.x.op == idaapi.cot_num or item.y.op == idaapi.cot_num:
                     if new_type is None and item.op == idaapi.cot_add:
-                        new_type = item.cexpr.type
+                        new_type = item.cexpr.type.copy()
                     num = item.cexpr.y.n._value if item.cexpr.x.index == nodes[idx + 1].index else item.cexpr.x.n._value
-                    off_delta += (num * idaapi.remove_pointer(item.cexpr.type).get_size())
+                    off_delta += (num * idaapi.remove_pointer(item.cexpr.type.copy()).get_size())
                 else:
                     return None
             idx += 1
@@ -537,14 +548,16 @@ class RecastStructMember(actions.HexRaysPopupAction):
         hx_view = idaapi.get_widget_vdui(ctx.widget)
         result = self.check(hx_view)
         if result:
+            logger.debug("[activate] recast type = %s" % "RECAST_STRUCTURE" if result[0] == 4 else "RECAST_HELPER")
             if result[0] == RECAST_HELPER:
                 struct_name, member_offset, cast_helper = result[1:]
+                logger.debug("[activate] RECAST_HELPER struct_name = %s, member_offset = 0x%02X, cast_helper = %s"%(struct_name, member_offset, cast_helper))
                 sid = idc.get_struc_id(struct_name)
                 if sid != idaapi.BADADDR:
                     struct_tif = helper.get_struc(sid)
                     udm = helper.get_member(struct_tif,member_offset)
                     member_name = udm.name
-                    member_size = udm.size
+                    member_size = udm.size//8
                     if cast_helper.startswith("BYTE") or cast_helper in ("HIBYTE", "LOBYTE"):
                         helper.del_struc_member(struct_tif, member_offset)
                         for i in range(member_size):
@@ -553,6 +566,10 @@ class RecastStructMember(actions.HexRaysPopupAction):
                         helper.del_struc_member(struct_tif, member_offset)
                         for i in range(0,member_size,2):
                             idc.add_struc_member(sid,member_name if i == 0 else "field_%X"%(member_offset + i), member_offset+i, idaapi.FF_DATA|idaapi.FF_WORD,idaapi.BADADDR, 2)
+                    if cast_helper in ("LODWORD","HIDWORD"):
+                        helper.del_struc_member(struct_tif, member_offset)
+                        for i in range(0,member_size,2):
+                            idc.add_struc_member(sid,member_name if i == 0 else "field_%X"%(member_offset + i), member_offset+i, idaapi.FF_DATA|idaapi.FF_DWORD,idaapi.BADADDR, 4)
                     hx_view.refresh_view(True)
 
             elif result[0] == RECAST_STRUCTURE:

@@ -1,4 +1,8 @@
-from PyQt5 import QtCore, QtGui
+import ida_ida
+if ida_ida.inf_get_version() < 920:
+    from PyQt5 import QtCore, QtGui
+else:
+    from PySide6 import QtCore, QtGui
 
 import idaapi
 import idc
@@ -435,8 +439,10 @@ class TreeItem(object):
 
 class TreeModel(QtCore.QAbstractItemModel):
     # TODO: Add higlighting if eip in function, consider setting breakpoints
-
-    refreshed = QtCore.pyqtSignal()
+    if ida_ida.inf_get_version() < 920:
+        refreshed = QtCore.pyqtSignal()
+    else:
+        refreshed = QtCore.Signal()
 
     def __init__(self, parent=None):
         super(TreeModel, self).__init__(parent)

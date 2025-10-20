@@ -1,10 +1,16 @@
 import os
 import ida_kernwin
-from PyQt5 import QtCore, QtWidgets, QtGui
+import ida_ida
 
+if ida_ida.inf_get_version() < 920:
+    from PyQt5 import QtCore, QtWidgets, QtGui
+else:
+    from PySide6 import QtCore, QtWidgets, QtGui
 import idaapi
+
 from HexRaysPyTools.settings import get_config
 import HexRaysPyTools.core.vtables_netnode as vtables_netnode
+from HexRaysPyTools.core.helper import MyFormToPyQtWidget
 import idc
 import re
 
@@ -32,7 +38,7 @@ class StructureBuilder(idaapi.PluginForm):
         self.parent = None
 
     def OnCreate(self, form):
-        self.parent = idaapi.PluginForm.FormToPyQtWidget(form)
+        self.parent = MyFormToPyQtWidget(form)
         self.init_ui()
 
     def init_ui(self):
@@ -277,9 +283,10 @@ class StructureBuilder(idaapi.PluginForm):
                 'types'),
             "Toml file (*.toml)"
         )
-        print(f"[INFO] Opening {file_name[0]}")
-        self.structure_model.tmpl_types.set_file_path(file_name[0])
-        self.reload_stl_list()
+        if file_name[0]:
+            print(f"[INFO] Opening {file_name[0]}")
+            self.structure_model.tmpl_types.set_file_path(file_name[0])
+            self.reload_stl_list()
 
     def OnClose(self, form):
         pass
@@ -344,7 +351,7 @@ class ClassViewer(idaapi.PluginForm):
 
     def OnCreate(self, form):
         # self.parent = self.FormToPySideWidget(form)
-        self.parent = idaapi.PluginForm.FormToPyQtWidget(form)
+        self.parent = MyFormToPyQtWidget(form)
         self.init_ui()
 
     def init_ui(self):

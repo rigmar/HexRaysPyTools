@@ -387,6 +387,7 @@ class PropagateName(actions.HexRaysPopupAction):
             return
 
         obj = api.ScanObject.create(cfunc, ctree_item)
+        logger.debug("Propagating name at {}".format(type(obj)))
         if obj and not _is_default_name(obj.name):
             return obj
 

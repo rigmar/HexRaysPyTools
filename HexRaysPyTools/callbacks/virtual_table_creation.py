@@ -1,6 +1,9 @@
 import ida_bytes
+import ida_hexrays
 import ida_kernwin
+import ida_nalt
 import ida_name
+import ida_typeinf
 import idaapi
 import idautils
 import idc
@@ -16,6 +19,7 @@ from HexRaysPyTools.log import Log
 
 logger = Log.get_logger()
 
+pure_names = ["___cxa_pure_virtual"]
 
 class CreateVtable(actions.Action):
     description = "Create Virtual Table"
@@ -38,7 +42,7 @@ class CreateVtable(actions.Action):
         if ctx.widget_type == idaapi.BWN_DISASM:
             if self.check(ctx.cur_ea):
                 idaapi.attach_action_to_popup(ctx.widget, None, self.name)
-                return idaapi.AST_ENABLE
+                return idaapi.AST_ENABLE_FOR_WIDGET
             idaapi.detach_action_from_popup(ctx.widget, self.name)
             return idaapi.AST_DISABLE
         return idaapi.AST_DISABLE_FOR_WIDGET
@@ -71,13 +75,23 @@ class DisassembleCreateVtable(actions.Action):
         if ctx.widget_type == ida_kernwin.BWN_DISASM:
             if self.check(ctx.cur_ea):
                 ida_kernwin.attach_action_to_popup(ctx.widget, None, self.name)
-                return idaapi.AST_ENABLE
+                return idaapi.AST_ENABLE_FOR_WIDGET
             ida_kernwin.detach_action_from_popup(ctx.widget, self.name)
             return ida_kernwin.AST_DISABLE
         return ida_kernwin.AST_DISABLE_FOR_WIDGET
 
 
-
+def check_addr(addr, i, get_addr_val):
+    ret = False
+    if get_addr_val(addr) != 0:
+        if ida_bytes.is_func(ida_bytes.get_full_flags(get_addr_val(addr))):
+            if GetXrefCnt(addr) == 0 or i == 0:
+                ret = True
+        elif ida_bytes.has_name(ida_bytes.get_full_flags(get_addr_val(addr))):
+            if ida_name.get_name(get_addr_val(addr)) in pure_names:
+                if GetXrefCnt(addr) == 0 or i == 0:
+                    ret = True
+    return ret
 
 class DecompileCreateVtable(actions.HexRaysPopupAction):
     description = "Create Vtable"
@@ -87,16 +101,21 @@ class DecompileCreateVtable(actions.HexRaysPopupAction):
         idaapi.action_handler_t.__init__(self)
 
     def check(self, hx_view):
-        if hx_view.item.is_citem() and hx_view.item.it.is_expr():
+        if hx_view.item and hx_view.item.is_citem() and hx_view.item.it.is_expr():
             item = hx_view.item.e
             if item.opname == "obj" and idaapi.is_data(idaapi.get_full_flags(item.obj_ea)):
                 return True
         return False
 
+    def update(self, ctx):
+        if ctx.widget_type == ida_kernwin.BWN_PSEUDOCODE:
+            return idaapi.AST_ENABLE_FOR_WIDGET
+        return idaapi.AST_DISABLE_FOR_WIDGET
+
     def activate(self, ctx):
         # if fDebug:
         #     pydevd.settrace('localhost', port=2255, stdoutToServer=True, stderrToServer=True)
-        vdui = idaapi.get_widget_vdui(ctx.widget)
+        vdui = ida_hexrays.get_widget_vdui(ctx.widget)
         vdui.get_current_item(idaapi.USE_KEYBOARD)
         if vdui.item.is_citem() and vdui.item.it.is_expr():
             target_item = vdui.item.e
@@ -123,161 +142,130 @@ class DecompileCreateVtable(actions.HexRaysPopupAction):
             #         it_parent = cfunc.body.find_parent_of(it_parent)
             vdui.refresh_view(True)
 
-def create_vtable(addr):
-    def get_function_signature(func_addr):
-        tinfo = idaapi.tinfo_t()
-        if idaapi.get_tinfo(tinfo, func_addr):
-            func_type_data = idaapi.func_type_data_t()
-            if tinfo.get_func_details(func_type_data):
-                args = []
-                for i, arg in enumerate(func_type_data):
-                    if i == 0:  # The first argument is always the this pointer
-                        continue  # Skipped because we will add it separately in the function signature
-                    arg_name = arg.name if arg.name else f"a{i}"
-                    args.append(f"{arg.type.dstr()} {arg_name}")
-
-                args_str = ", ".join(args)
-                ret_type = tinfo.get_rettype().dstr()
-
-                # Get the original function name
-                orig_name = ida_name.get_name(func_addr)
-                demangled = ida_name.demangle_name(orig_name, 0) if orig_name else None
-                func_name = demangled if demangled else orig_name
-
-                # Build the full function signature, putting the function name inside the pointer declaration
-                return f"{ret_type} (__thiscall *{func_name})(void *this{', ' + args_str if args_str else ''})"
-        return None
-
-    def isMangled(n):
-        if n.startswith("_ZN")or n.startswith("?"): return True
-        return False
-
-    # print "addr = 0x%08X" % addr
-
+def create_vtable(addr, only_method=True):
+    logger.debug("Enter: address = 0x%08X" % addr)
     name = ida_kernwin.ask_str("", 0, "Please enter the class name")
     if name is None:
         return
-    struct_id = idc.get_struc_id(name + "_vtbl")
-    # print struct_id
-    if struct_id != idaapi.BADADDR:
-        i = ida_kernwin.ask_yn(0, "A vtable structure for %s already exists. Are you sure you want to remake it?" % name)
-        if i == idaapi.BADADDR:
-            return
-        if i == 1:
-            sptr = helper.get_struc(struct_id)
-            if sptr:
-                size = idc.get_struc_size(struct_id)
-                offset = 0
-                while offset < size:
-                    member = idc.get_member_id(struct_id, offset)
-                    if member != -1:
-                        idc.del_struc_member(struct_id, offset)
-                    offset += ida_bytes.get_item_size(member) if member != -1 else ida_bytes.get_item_size(offset)
-    else:
-        struct_id = idc.add_struc(idaapi.BADADDR, name + "_vtbl", 0)
-    if struct_id == idaapi.BADADDR:
-        Warning("Could not create the vtable structure!.\nPlease check the entered class name.")
-        return
 
-    # bNameMethods = AskYN(0,"Would you like to assign auto names to the virtual methods (%s_virtXX)?"%name)
+    vtbl_name = name + "_vtbl"
+    type_ordinal = ida_typeinf.get_type_ordinal(ida_typeinf.get_idati(), vtbl_name)
+    if type_ordinal != 0:
+        vtbl_tif = helper.get_named_type_tif(vtbl_name)
+        if vtbl_tif is not None:
+            i = ida_kernwin.ask_yn(0, "A vtable structure for %s already exists. Are you sure you want to remake it?" % name)
+            if i == idaapi.BADADDR:
+                return
+            if i == 1:
+                udt = helper.get_type_udt(vtbl_tif)
+                if udt is not None:
+                    r = vtbl_tif.del_udms(0, len(udt))
+                    if r != 0:
+                        raise ValueError("Something wrong: %s" % ida_typeinf.tinfo_errstr(r))
+                else:
+                    logger.error("Cant obtain udt for type '%s'" % vtbl_name)
+                    ida_kernwin.warning("Cant obtain udt for type '%s'" % vtbl_name)
+                    return
+        else:
+            logger.error("Cant obtain tinfo for type '%s'"%vtbl_name)
+            ida_kernwin.warning("Cant obtain tinfo for type '%s'"%vtbl_name)
+            return
+    else:
+        type_ordinal = ida_typeinf.alloc_type_ordinal(ida_typeinf.get_idati())
+        vtbl_tif = ida_typeinf.tinfo_t()
+        if not vtbl_tif.create_udt():
+            logger.error("Cant create udt tinfo for type '%s'"%vtbl_name)
+            ida_kernwin.warning("Cant create udt tinfo for type '%s'"%vtbl_name)
+            return
+
     i = 0
     n = Netnode("$ VTables")
-    n[struct_id] = []
+    n[type_ordinal] = []
     if not Const.EA64:
         ptr_size = 4
         fSize = idaapi.FF_DWORD
         refinf = idaapi.refinfo_t()
         refinf.init(idaapi.REF_OFF32)
+        ref_type = ida_nalt.REF_OFF32
         get_addr_val = ida_bytes.get_wide_dword
     else:
         ptr_size = 8
         fSize = idaapi.FF_QWORD
         refinf = idaapi.refinfo_t()
         refinf.init(idaapi.REF_OFF64)
+        ref_type = ida_nalt.REF_OFF64
         get_addr_val = ida_bytes.get_qword
     # else:
     #     ptr_size = 2
     #     fSize = idaapi.FF_WORD
     #     refinf = idaapi.refinfo_t(idaapi.REF_OFF16)
-
-    while (get_addr_val(addr) != 0 and idaapi.is_func(ida_bytes.get_full_flags(get_addr_val(addr))) and (GetXrefCnt(addr) == 0 or i == 0)) is True:
-        c = get_addr_val(addr)
+    while check_addr(addr, i, get_addr_val) is True:
+        meth_addr = get_addr_val(addr)
         methName = ""
-        logger.debug("c = 0x%08X" % c)
+        logger.debug("meth_addr = 0x%08X" % meth_addr)
         logger.debug("i = %d" % i)
 
-        # func_sig = get_function_signature(c) if c != 0 else None
-        # Strange approach. Don't understand why func signature going to commnets.
-        # It may do through creating special tinfo and apply to field.
-        #todo need to think about auto apply func signatures
-        if c != 0:
-            if ida_bytes.has_name(ida_bytes.get_full_flags(get_addr_val(c))) or ida_name.get_name(c) != "":
-                methName = ida_name.get_name(c)
-                if isMangled(methName):
+        if meth_addr != 0:
+            if ida_bytes.has_name(ida_bytes.get_full_flags(get_addr_val(meth_addr))) or ida_name.get_name(meth_addr) != "":
+                methName = ida_name.get_name(meth_addr)
+                if helper.isMangled(methName):
                     try:
                         demangled = ida_name.demangle_name(methName, 0)
                         if demangled:
                             methName = demangled[:demangled.find("(")]
                             if ' ' in methName:
                                 methName = methName[methName.rfind(" "):].strip()
-                            # ��麯�����Ƿ���������ַ������
-                            if ('>' in methName or '<' in methName or
-                                len(methName) > 50 or
-                                methName.count("?") > 2):
-                                methName = "sub_%X" % c
-                            else:
+                            if only_method:
+                                if "::" in methName:
+                                    methName = methName.rsplit("::", 1)[1]
                                 methName = methName.replace("~", "dtor_").replace("==", "_equal")
-                            # �������� "::" �����
-                            if "::" in methName:
-                                methName = methName.replace("::", "__")
+                            else:
+                                if ('>' in methName or '<' in methName or
+                                    len(methName) > 50 or
+                                    methName.count("?") > 2):
+                                    methName = "sub_%X" % meth_addr
+                                else:
+                                    methName = methName.replace("~", "dtor_").replace("==", "_equal")
+                                if "::" in methName:
+                                    methName = methName.replace("::", "__")
                         else:
-                            methName = "sub_%X" % c
+                            methName = "sub_%X" % meth_addr
                     except:
-                        methName = "sub_%X" % c
+                        methName = "sub_%X" % meth_addr
                 else:
                     if "::" in methName:
-                        methName = methName.replace("::", "__")
+                        if only_method:
+                            methName = methName.rsplit("::", 1)[1]
+                        else:
+                            methName = methName.replace("::", "__")
+                    methName = methName.replace("~", "dtor_").replace("==", "_equal")
             else:
-                methName = "sub_%X" % c
+                methName = "sub_%X" % meth_addr
         else:
-            methName = "field_%02X" % (i * 4)
+            methName = "field_%02X" % (i * ptr_size)
         logger.debug("Name = %s"%methName)
-        sptr = helper.get_struc(struct_id)
-
-        # if func_sig:
-        #     comment = func_sig
-        # else:
-        #     comment = "-> %08X, args: 0x%X" % (c, idc.get_func_attr(c,idc.FUNCATTR_ARGSIZE))
-        comment = "-> %08X, args: 0x%X" % (c, idc.get_func_attr(c,idc.FUNCATTR_ARGSIZE))
-        e = idc.add_struc_member(struct_id, methName, i * ptr_size, idaapi.FF_0OFF | fSize | idaapi.FF_DATA, -1, ptr_size)
-        logger.debug ("e = %d" % e)
-        if e != 0:
-            if e == -1:
-                l = 0
-                while e == -1:
-                    e = idc.add_struc_member(sptr, (methName + "_%d"%l), i * ptr_size, idaapi.FF_0OFF | fSize | idaapi.FF_DATA,
-                                                -1, ptr_size)
-                    l = l + 1
-                    if l > 50:
-                        ida_kernwin.warning("Wrong function name!")
-                        return
-            elif e != -2 and e != idaapi.BADADDR:
-                ida_kernwin.warning("Error adding a vtable entry!")
-                return
-            else:
-                ida_kernwin.warning("Unknown error! Err = %d"%e)
-                return
-        idc.set_member_cmt(struct_id, i * ptr_size, comment, 1)
-        # l = n[name + "_vtbl"]
-        # l.append((c - idaapi.get_imagebase()) if c else idaapi.BADADDR)
-        # n[name + "_vtbl"] = l
-        l = n[struct_id]
-        l.append((c - idaapi.get_imagebase()) if c else idaapi.BADADDR)
-        n[struct_id] = l
-
+        rc = helper.tif_add_member(vtbl_tif, methName, 'void*', i * ptr_size * 8)
+        if rc != 0 and rc == -21:
+            postfix_num = 0
+            while rc != 0 and rc == -21:
+                logger.debug("Member duplicated name. Trying add postfix number %d"%postfix_num)
+                rc = helper.tif_add_member(vtbl_tif, methName+"_%d"%postfix_num, 'void*', i * ptr_size * 8)
+                postfix_num = postfix_num + 1
+        elif rc != 0:
+            logger.error("Cant add member named '%s', rc = %d (%s)" % (methName, rc, ida_typeinf.tinfo_errstr(rc)))
+            raise ValueError("Something wrong: %s" % ida_typeinf.tinfo_errstr(rc))
+        l = n[type_ordinal]
+        l.append((meth_addr - idaapi.get_imagebase()) if meth_addr else idaapi.BADADDR)
+        n[type_ordinal] = l
         i = i + 1
         addr = addr + ptr_size
-    return name + "_vtbl"
+    rc = vtbl_tif.set_numbered_type(ida_typeinf.get_idati(), type_ordinal, ida_typeinf.NTF_TYPE|ida_typeinf.NTF_REPLACE, vtbl_name)
+    if rc != 0:
+        logger.error("Cant set_numbered_type named '%s', rc = %d (%s)" % (vtbl_name, rc, ida_typeinf.tinfo_errstr(rc)))
+        ida_kernwin.warning("Cant set_numbered_type named '%s', rc = %d (%s)" % (vtbl_name, rc, ida_typeinf.tinfo_errstr(rc)))
+    return vtbl_name
+
+
 
 
 if get_config().get_opt("Virtual table creation", "CreateVtable"):

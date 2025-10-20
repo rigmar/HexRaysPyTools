@@ -33,7 +33,7 @@ class VtableMembersUI(idaapi.Form):
         idaapi.Form.__init__(self,
                              r"""
                              <Vtable %s members:{cEChooser}>   <##Add new:{iButtonAddNew}>
-                             """ % vt_name.replace(":","\:"), {
+                             """ % vt_name.replace(":",r"\:"), {
                                  'cEChooser': idaapi.Form.EmbeddedChooserControl(self.EChooser),
                                  'iButtonAddNew': idaapi.Form.ButtonInput(self.add_new)
                              })
@@ -83,20 +83,22 @@ class VtableMembersChooser(idaapi.Choose):
     def populate_items(self):
         self.items = []
         n = Netnode(vt_node_name)
+        l = None
+        type_ord = ida_typeinf.get_type_ordinal(ida_typeinf.get_idati(), self.vt_name)
+        if type_ord != 0:
+            if self.vt_name in n:
+                l = n[self.vt_name]
+            elif type_ord in n:
+                l = n[type_ord]
+            if l is not None:
+                for i in range(len(l)):
+                    item = self.generate_item(i, type_ord, l[i])
+                    self.items.append(item)
 
-        l = n[self.vt_name]
-        sptr = helper.get_struc(ida_typeinf.get_named_type_tid(self.vt_name))
-        for i in range(len(l)):
-            item = self.generate_item(i, sptr, l[i])
-            self.items.append(item)
-
-    def generate_item(self, i, sptr, func_offset):
+    def generate_item(self, i, type_ord, func_offset):
         field_offset = i * self.field_size
-        member_udm = helper.get_member(sptr, field_offset)
-        if member_udm is None:
-            field_name = "NONE"
-        else:
-            field_name = member_udm.name
+        tif = ida_typeinf.tinfo_t(ordinal=type_ord)
+        field_name = tif.get_udm(i)[1].name
         func_addr = func_offset
         if func_addr is not None:
             func_addr += ida_nalt.get_imagebase()
@@ -145,9 +147,17 @@ class VtableMembersChooser(idaapi.Choose):
         self.selected = [n]
         field_offset = int(self.items[n][0], 16)
         i = field_offset // self.field_size
-        l = Netnode(vt_node_name)[self.vt_name]
-        if i < len(l):
-            ida_kernwin.jumpto(l[i] + ida_nalt.get_imagebase())
+        node = Netnode(vt_node_name)
+        l = None
+        type_ord = ida_typeinf.get_type_ordinal(ida_typeinf.get_idati(), self.vt_name)
+        if type_ord != 0:
+            if self.vt_name in node:
+                l = node[self.vt_name]
+            elif type_ord in node:
+                l = node[type_ord]
+            if l is not None:
+                if i < len(l):
+                    ida_kernwin.jumpto(l[i] + ida_nalt.get_imagebase())
 
     def OnEditLine(self, n):
         logger.debug("OnEditLine: n = ", n)
@@ -213,7 +223,7 @@ class VtableChooser(idaapi.Choose):
         n = Netnode(vt_node_name)
         for name in n.keys():
             if type(name) != str:
-                name = "0x%08X" % name + " (%s)" % ida_typeinf.get_tid_name(name)
+                name = "0x%08X (%d)" % (name,name) + " (%s)" % ida_typeinf.get_numbered_type_name(ida_typeinf.get_idati(), name)
             self.items.append([name])
 
     def OnClose(self):
@@ -250,8 +260,8 @@ class VtableChooser(idaapi.Choose):
         self.selected = [n]
         vt_name = self.items[n][0]
         if vt_name.startswith("0x"):
-            vt_sid = int(vt_name.split(' ')[0], 16)
-            vt_name = ida_typeinf.get_tid_name(vt_sid)
+            vt_ordinal = int(vt_name.split(' ')[0], 16)
+            vt_name = ida_typeinf.get_numbered_type_name(ida_typeinf.get_idati(), vt_ordinal)
         if vt_name:
             f = VtableMembersUI(vt_name)
             f.Go()
@@ -357,9 +367,8 @@ def bound_vtable(addr):
     name = ida_kernwin.ask_str("", 0, "Please enter the vtable struct name")
     if name is None:
         return
-    struct_id = idc.get_struc_id(name)
-    # print struct_id
-    if struct_id != idaapi.BADADDR:
+    type_ord = ida_typeinf.get_type_ordinal(ida_typeinf.get_idati(), name)
+    if type_ord != 0:
 
         i = 0
         if not Const.EA64:
@@ -381,14 +390,15 @@ def bound_vtable(addr):
             offsets.append(c - ida_nalt.get_imagebase())
             i = i + 1
             addr = addr + ptr_size
-        sptr = helper.get_struc(struct_id)
-        if sptr.memqty == len(offsets):
+        tif = ida_typeinf.tinfo_t(ordinal=type_ord)
+
+        if tif.get_size()//ptr_size == len(offsets):
             n = Netnode("$ VTables")
             n[name] = offsets
-            n[struct_id] = offsets
-        elif sptr.memqty > len(offsets):
+            n[type_ord] = offsets
+        elif tif.get_size()//ptr_size > len(offsets):
             ida_kernwin.warning("Struct %s has more members than methods in vtbl at 0x%08X"%(name, vt_addr))
-        elif sptr.memqty < len(offsets):
+        elif tif.get_size()//ptr_size < len(offsets):
             ida_kernwin.warning("Vtbl at 0x%08X has more methods than members quantity in struct %s" % (vt_addr, name))
     else:
         ida_kernwin.warning("Type %s not founded" % name)

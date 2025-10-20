@@ -1,9 +1,12 @@
 # no_compat_file
 import collections
+import sys
 
 import ida_hexrays
 import ida_idp
+import ida_kernwin
 import ida_loader
+from ida_kernwin import PluginForm
 from idc import BADADDR
 
 from HexRaysPyTools.log import Log
@@ -43,8 +46,6 @@ def init_hexrays():
     if ida_ida.inf_is_64bit():
         if cpu == ida_idp.PLFM_386:
             decompiler = "hexx64"
-        else:
-            decompiler += "64"
     if ida_loader.load_plugin(decompiler) and ida_hexrays.init_hexrays_plugin():
         return True
     else:
@@ -56,6 +57,29 @@ def GetXrefCnt(ea):
     for xref in idautils.XrefsTo(ea, 0):
         i += 1
     return i
+
+def MyFormToPyQtWidget(tw, ctx = sys.modules['__main__']):
+    if ida_ida.inf_get_version() < 920:
+        return OldFormToPyQtWidget(tw, ctx)
+    else:
+        return ida_kernwin.PluginForm.FormToPyQtWidget(tw, ctx)
+
+def OldFormToPyQtWidget(tw, ctx = sys.modules['__main__']):
+    r"""
+    Convert a TWidget* to a QWidget to be used by PyQt
+
+    @param ctx: Context. Reference to a module that already imported SIP and QtWidgets modules
+    """
+    if type(tw).__name__ == "SwigPyObject":
+        ptr_l = ida_idaapi.long_type(tw)
+    else:
+        import ctypes
+        ctypes.pythonapi.PyCapsule_GetPointer.restype = ctypes.c_void_p
+        ctypes.pythonapi.PyCapsule_GetPointer.argtypes = [ctypes.py_object, ctypes.c_char_p]
+        ptr_l = ctypes.pythonapi.PyCapsule_GetPointer(tw, PluginForm.VALID_CAPSULE_NAME)
+    PluginForm._ensure_widget_deps(ctx)
+    vptr = ctx.sip.voidptr(ptr_l)
+    return ctx.sip.wrapinstance(vptr.__int__(), ctx.QtWidgets.QWidget)
 
 def convert_name(vt_name):
     if vt_name.startswith("0x"):
@@ -298,11 +322,13 @@ def search_duplicate_fields(udt_data):
     return [indices for indices in list(default_dict.values()) if len(indices) > 1]
 
 
-def get_member_name(tinfo, offset):
-    udt_member = idaapi.udt_member_t()
+def get_member_name(tinfo: ida_typeinf.tinfo_t, offset):
+    udt_member = idaapi.udm_t()
     udt_member.offset = offset * 8
-    tinfo.find_udt_member(udt_member, idaapi.STRMEM_OFFSET)
-    return udt_member.name
+    r = tinfo.find_udm(udt_member, idaapi.STRMEM_OFFSET)
+    if r != -1:
+        return udt_member.name
+    return ""
 
 
 def change_member_name(struct_name, offset, name):
@@ -567,6 +593,9 @@ def get_struc(struct_tid):
             return tif
     return ida_idaapi.BADADDR
 
+def isMangled(n):
+    if n.startswith("_ZN") or n.startswith("__ZN") or n.startswith("?"): return True
+    return False
 
 def get_member(tif, offset):
     if not tif.is_struct():
@@ -684,9 +713,43 @@ def set_struc_listed(tif, is_listed):
         ida_typeinf.set_type_choosable(None, tif.get_ordinal(), is_listed)
 
 def get_member_id_by_udm(sid, udm):
-    tif = ida_typeinf.tinfo_t(sid)
-    udm_idx = tif.find_udm(udm)
+    tif = ida_typeinf.tinfo_t(tid=sid)
+    udm_idx = tif.find_udm(udm, ida_typeinf.STRMEM_AUTO)
     if udm_idx != -1:
         mid = tif.get_udm_tid(udm_idx)
         return mid
     return BADADDR
+
+def get_numbered_type_tif(type_ordinal):
+    ret = ida_typeinf.get_numbered_type(ida_typeinf.get_idati(), type_ordinal)
+    if ret is not None:
+        t, f, c, fc, sc = ret
+        tif = ida_typeinf.tinfo_t()
+        ret = tif.deserialize(ida_typeinf.get_idati(), t, f, fc)
+        if ret:
+            return tif
+    return None
+
+def get_named_type_tif(name):
+    type_ordinal = ida_typeinf.get_type_ordinal(ida_typeinf.get_idati(), name)
+    if type_ordinal != 0:
+        return get_numbered_type_tif(type_ordinal)
+
+def get_type_udt(tif):
+    udt = ida_typeinf.udt_type_data_t()
+    if tif.get_udt_details(udt):
+        return udt
+    return None
+
+def apply_udt_struct(tif, udt):
+    return tif.create_udt(udt, ida_typeinf.BTF_STRUCT)
+
+def tif_add_member(tif, name, member_type, offset, flags = 0):
+    try:
+        val = tif.add_udm(name, member_type, offset, flags)
+    except ValueError as e:
+        if "duplicate name '%s'"%name in e.args[0]:
+            val = -21
+        else:
+            raise
+    return val
