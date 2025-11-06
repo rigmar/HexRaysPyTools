@@ -39,7 +39,7 @@ It's my fork of plugin with tuning for my convenience of work. Changes:
 - Added new feature to pop-out menu "TakeTypeAsName" that works for variables and structure fields.
 - And rewrote parsing for type recasts. I think my variant more stable and correct.
 
-Pulled some changes from https://github.com/sabason/HexRaysPyTools, https://github.com/NyaMisty/HexRaysPyTools and https://github.com/mahmoudimus/HexRaysPyTools
+Pulled some changes from https://github.com/sabason/HexRaysPyTools, https://github.com/NyaMisty/HexRaysPyTools, https://github.com/oopsmishap/HexRaysPyTools and https://github.com/mahmoudimus/HexRaysPyTools
 - Added new [Templated Type view](#templated-types-view) to Structure Builder
 - Compatibility fixes for IDA 9
 - Some fixes and upgrades
