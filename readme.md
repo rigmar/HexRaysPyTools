@@ -43,6 +43,10 @@ Pulled some changes from https://github.com/sabason/HexRaysPyTools, https://gith
 - Added new [Templated Type view](#templated-types-view) to Structure Builder
 - Compatibility fixes for IDA 9
 - Some fixes and upgrades
+
+You can read about it here
+[Fork features](#fork-features)
+
 # About
 =====
 
