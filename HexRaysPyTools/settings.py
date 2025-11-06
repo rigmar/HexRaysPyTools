@@ -1,4 +1,4 @@
-import os
+import os, shutil
 import logging
 
 import ida_diskio
@@ -106,8 +106,12 @@ STORE_XREFS = True
 # But if set this option to True than variable of every type could be possible to scan
 SCAN_ANY_TYPE = False
 
-TEMPLATED_TYPES_FILE = os.path.join(
+BASE_TEMPLATED_TYPES_FILE = os.path.join(
                 os.path.dirname(__file__), 'types', 'templated_types.toml')
+TEMPLATED_TYPES_FILE = os.path.join(ida_diskio.get_user_idadir(), "cfg", "templated_types.toml")
+if not os.path.exists(TEMPLATED_TYPES_FILE):
+    shutil.copy(BASE_TEMPLATED_TYPES_FILE, TEMPLATED_TYPES_FILE)
+
 
 
 
@@ -175,13 +179,14 @@ class Config(object):
                         "Negative offsets":{"SelectContainingStructure":True},
                         "New field creation":{"CreateNewField":True},
                         "Recasts":{"RecastItemLeft":True,"RecastItemRight":True,"RecastStructMember":True},
-                        "Renames":{"RenameOther":True,"RenameInside":True,"RenameOutside":True,"RenameUsingAssert":True,"PropagateName":True,"TakeTypeAsName":True, "RenameMemberFromFunctionName":False},
+                        "Renames":{"RenameOther":True,"RenameInside":True,"RenameOutside":True,"RenameUsingAssert":True,"PropagateName":True,"TakeTypeAsName":True,"RenameMemberFromFunctionName":False},
                         "Scanners":{"ShallowScanVariable":True,"DeepScanVariable":True,"RecognizeShape":True,"DeepScanReturn":True,"DeepScanFunctions":True},
                         "Struct xref collector":{"StructXrefCollector":True},
                         "Struct xref representation":{"FindFieldXrefs":True},
                         "Structs by size":{"GetStructureBySize":True},
                         "Swap if":{"SilentIfSwapper":True, "SwapThenElse":True},
-                        "Virtual table creation":{"CreateVtable":True,"DecompileCreateVtable":True,"DisassembleCreateVtable":True},
+                        "Virtual table creation":{"CreateVtable":True,"DecompileCreateVtable":True,"DisassembleCreateVtable":True, "Jump to method function":True,
+                                                  "VT names/field names sync":True},
                         "Virtual tables netnode":{"BoundVtable":True},
                        }
 

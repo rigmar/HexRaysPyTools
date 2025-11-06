@@ -5,8 +5,7 @@ import ida_nalt
 import ida_name
 import ida_typeinf
 import idaapi
-import idautils
-import idc
+from oslo_config.types import Boolean
 
 import HexRaysPyTools.core.helper as helper
 from . import actions
@@ -75,10 +74,37 @@ class DisassembleCreateVtable(actions.Action):
         if ctx.widget_type == ida_kernwin.BWN_DISASM:
             if self.check(ctx.cur_ea):
                 ida_kernwin.attach_action_to_popup(ctx.widget, None, self.name)
-                return idaapi.AST_ENABLE_FOR_WIDGET
+                return idaapi.AST_ENABLE
             ida_kernwin.detach_action_from_popup(ctx.widget, self.name)
             return ida_kernwin.AST_DISABLE
         return ida_kernwin.AST_DISABLE_FOR_WIDGET
+
+class LocalTypes_JumpToFunc(actions.Action):
+    description = "Jump to method function"
+    hotkey = None
+
+    def __init__(self):
+        super(LocalTypes_JumpToFunc, self).__init__()
+
+    @staticmethod
+    def check(type_ref): # type: (idaapi.til_type_ref_t) -> Int
+        if type_ref.is_struct():
+            vt = helper.get_vt_from_node(type_ref.ordinal)
+            if vt is not None:
+                return vt[type_ref.memidx] + ida_nalt.get_imagebase()
+        return None
+
+    def update(self, ctx):  # type: (idaapi.action_ctx_base_t) -> None
+        if ctx.widget_type == ida_kernwin.BWN_TILIST:
+            if self.check(ctx.type_ref):
+                ida_kernwin.attach_action_to_popup(ctx.widget, None, self.name)
+                return ida_kernwin.AST_ENABLE
+            ida_kernwin.detach_action_from_popup(ctx.widget, self.name)
+            return ida_kernwin.AST_DISABLE
+        return ida_kernwin.AST_DISABLE_FOR_WIDGET
+
+    def activate(self, ctx):
+        ida_kernwin.jumpto(self.check(ctx.type_ref))
 
 
 def check_addr(addr, i, get_addr_val):
@@ -274,3 +300,7 @@ if get_config().get_opt("Virtual table creation", "DecompileCreateVtable"):
     actions.action_manager.register(DecompileCreateVtable())
 if get_config().get_opt("Virtual table creation", "DisassembleCreateVtable"):
     actions.action_manager.register(DisassembleCreateVtable())
+if get_config().get_opt("Virtual table creation", "Jump to method function"):
+    actions.action_manager.register(LocalTypes_JumpToFunc())
+
+

@@ -6,6 +6,7 @@ import ida_hexrays
 import ida_idp
 import ida_kernwin
 import ida_loader
+import ida_nalt
 from ida_kernwin import PluginForm
 from idc import BADADDR
 
@@ -24,7 +25,7 @@ import HexRaysPyTools.core.cache as cache
 import HexRaysPyTools.core.const as const
 import HexRaysPyTools.settings as settings
 import HexRaysPyTools.forms as forms
-
+from HexRaysPyTools.netnode import Netnode
 
 logger = Log.get_logger()
 
@@ -753,3 +754,40 @@ def tif_add_member(tif, name, member_type, offset, flags = 0):
         else:
             raise
     return val
+
+def get_vt_from_node(type_ord):
+    n = Netnode("$ VTables")
+    if type_ord in n:
+        return n[type_ord]
+    else:
+        return None
+
+def get_vt_from_node_by_addr(addr):
+    offset = addr - ida_nalt.get_imagebase()
+    n = Netnode("$ VTables")
+    ret = []
+    for type_ord in n.keys():
+        vt = n[type_ord]
+        if offset in vt:
+            ret = ret + [(type_ord, i) for i, x in enumerate(vt) if x == offset]
+    return ret
+
+def global_get_class_name(full_name):
+    if "::" in full_name:
+        class_name, meth_name = full_name.rsplit("::", 1)
+    else:
+        # class_name = ida_typeinf.get_struc_name(sid).rsplit("_vtbl",1)[0]
+        class_name = ""
+        meth_name = full_name
+
+    return class_name, meth_name
+
+def struct_get_class_name(type_ord, udm):
+    meth_full_name = udm.name
+    if "::" in meth_full_name:
+        class_name, meth_name = meth_full_name.rsplit("::", 1)
+    else:
+        class_name = ida_typeinf.get_numbered_type_name(ida_typeinf.get_idati(), type_ord).rsplit("_vtbl",1)[0]
+        meth_name = meth_full_name
+
+    return class_name, meth_name

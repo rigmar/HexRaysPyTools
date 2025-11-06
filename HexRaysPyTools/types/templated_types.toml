@@ -128,6 +128,17 @@ struct __cppobj std_set_{1}_iterator_pairib
 }};
 """
 
+["std::ptr_pair<K,V>"]
+base_name = "std_ppair_{1}_{3}"
+types = ["K", "V"]
+struct = """
+struct {1}_{3}_std_ppair
+{{
+    {0}* key;
+    {2}* value;
+}};
+"""
+
 ["std::map<K,V>"]
 base_name = "std_map_{1}_{3}"
 types = ["K", "V"]

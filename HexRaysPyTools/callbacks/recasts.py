@@ -581,24 +581,26 @@ class RecastStructMember(actions.HexRaysPopupAction):
                     if udm is None:
                         if idc.add_struc_member(sid, "field_%X" % field_offset, field_offset,
                                                    idaapi.FF_DATA | idaapi.FF_BYTE, idaapi.BADADDR,1) != 0:
-                            print ("Error on add_struc_member!")
+                            logger.error("Error on add_struc_member!")
                     elif udm.offset != field_offset*8:
-                        if not helper.del_struc_member(struct_tif, udm.offset//8):
-                            print ("Error on del_struc_member!")
-                        if idc.add_struc_member(struct_tif, "field_%X" % field_offset, field_offset,
+                        ret = helper.del_struc_member(struct_tif, udm.offset//8)
+                        if ret:
+                            logger.error("Error on del_struc_member! ret = %d"%ret)
+                        if idc.add_struc_member(sid, "field_%X" % field_offset, field_offset,
                                                    idaapi.FF_DATA | idaapi.FF_BYTE, idaapi.BADADDR, 1) != 0:
-                            print ("Error on add_struc_member!")
+                            logger.error("Error on add_struc_member!")
                     else:
                         tif = udm.type
                         if tif.is_array():
-                            if not helper.del_struc_member(struct_tif, udm.offset//8):
-                                print ("Error on del_struc_member!")
-                            if idc.add_struc_member(struct_tif, "field_%X" % field_offset, field_offset,
+                            ret = helper.del_struc_member(struct_tif, udm.offset // 8)
+                            if ret:
+                                logger.error("Error on del_struc_member! ret = %d" % ret)
+                            if idc.add_struc_member(sid, "field_%X" % field_offset, field_offset,
                                                        idaapi.FF_DATA | idaapi.FF_BYTE, idaapi.BADADDR, 1) != 0:
-                                print ("Error on add_struc_member!")
+                                logger.error("Error on add_struc_member!")
                     rc = helper.set_member_type(struct_tif, field_offset, new_type, ida_typeinf.ETF_MAY_DESTROY)
                     if rc != 0:
-                        print ("set_member_tinfo2 rc = %d" % rc)
+                        logger.debug("set_member_tinfo2 rc = %d" % rc)
                     hx_view.refresh_view(True)
 
 

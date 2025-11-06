@@ -5,19 +5,26 @@ Plugin for IDA Pro
 * [About](#about)
 * [Installation](#installation)
 * [Configuration](#configuration)
+* [Fork features](#Fork-features)
+  * [Config](#Config)
+  * [Create netnoded virtual tables](#Create-netnoded-virtual-tables)
+  * [Dummy structure create](#Dummy-structure-create)
+  * [Sync method and function names](#Sync-method-and-function-names)
+  * [Struct field recast](#Struct-field-recast)
+  * [Rename a field/variable according to its type](#taketypeasname)
 * [Features](#features)
-    * [Structure reconstruction](#structure-reconstruction)
-      * [Structure View](#structure-view)
-      * [Templated Types View](#templated-types-view)
-    * [Disassembler code manipulations](#disassembler-code-manipulations)
-      * [Containing structures](#containing-structures)
-      * [Function signature manipulation](#function-signature-manipulation)
-      * [Recasting & Renaming](#recasting-shiftr-shiftl-renaming-shiftn-ctrlshiftn)
-      * [Name Propagation](#name-propagation-p)
-      * [Untangling 'if' statements](#untangling-if-statements)
-    * [Classes](#classes)
-    * [Structure Graph](#structure-graph)
-    * [API](#api)
+  * [Structure reconstruction](#structure-reconstruction)
+    * [Structure View](#structure-view)
+    * [Templated Types View](#templated-types-view)
+  * [Disassembler code manipulations](#disassembler-code-manipulations)
+    * [Containing structures](#containing-structures)
+    * [Function signature manipulation](#function-signature-manipulation)
+    * [Recasting & Renaming](#recasting-shiftr-shiftl-renaming-shiftn-ctrlshiftn)
+    * [Name Propagation](#name-propagation-p)
+    * [Untangling 'if' statements](#untangling-if-statements)
+  * [Classes](#classes)
+  * [Structure Graph](#structure-graph)
+  * [API](#api)
 * [Presentations](#presentations)
 
 # Current state
@@ -59,7 +66,44 @@ Can be found at [`$IDAUSR\cfg\HexRaysPyTools.cfg`](https://hex-rays.com/blog/igo
 * `propagate_through_all_names`. Set `True` if you want to rename not only the default variables for the [Propagate Name](#Propagate) feature.
 * `store_xrefs`. Specifies whether to store the cross-references collected during the decompilation phase inside the database. (Default - True)
 * `scan_any_type`. Set `True` if you want to apply scanning to any variable type. By default, it is possible to scan only basic types like `DWORD`, `QWORD`, `void *` e t.c. and pointers to non-defined structure declarations.
-* `templated_types_file`. Set to default TOML file path for templated types view. (Default - Empty, will auto load `%IDA_DIR%/Plugins/HexRaysPyTools/types/templated_types.toml`)
+* `templated_types_file`. Set to default TOML file path for templated types view. (Default - Empty, will auto load `%IDA_USER_DIR%/cfg/templated_types.toml`)
+
+# Fork features
+
+## Config
+Most of the features can be enabled/disabled via the added configuration window.
+![img][config]
+To switch a feature, double-click on the selected one.
+
+## Create netnoded virtual tables
+A vtable can be created either from pseudocode (via a pointer to a global variable) or from an address in the disassembly.
+![netnoded_vtable1.png](Img/netnoded_vtable1.png)
+![netnoded_vtable2.png](Img/netnoded_vtable2.png)
+It is created info in a netnode, a store inside the IDB, where, for each method in each table, the function’s offset from the table base is stored. As a result, you can always jump to a method’s code—for example, by double-clicking in pseudocode. Or via `Jump to method function` action in Local Types window
+![netnoded_vtable3.jpg](Img/netnoded_vtable3.jpg)
+
+## Dummy structure create
+You can create a struct of a given size and fill it with fields of fixed widths (1, 2, 4, 8 bytes). You can set alignment. You can specify a base class.
+![SimpleStructCreate1.png](Img/SimpleStructCreate1.png)
+![SimpleStructCreate2.png](Img/SimpleStructCreate2.png)
+Click at number to set the field size.
+
+## Sync method and function names
+Because each method entry is mapped to its function, names stay in sync. Renaming a method in a vtable renames all other entries pointing to the same function, and renames the function itself. Renaming a function renames all method entries across all vtables that reference it.
+![VtNamesSync.gif](Img/VtNamesSync.gif)
+
+## Struct field recast
+Walks the AST to determine the exact type to apply (not perfect, but better than the original). Handles cases like `Byte2(struct->field)`.
+![StructFieldRecast.gif](Img/StructFieldRecast.gif)
+
+## Rename a field/variable according to its type<a id='taketypeasname'></a>
+`something*` → p_something
+
+`Something*` → pSomething
+
+`something` → o_something
+![TakeTypeAsName1c.gif](Img/TakeTypeAsName1c.gif)
+![TakeTypeAsName2c.gif](Img/TakeTypeAsName2c.gif)
 
 # Features
 
@@ -367,3 +411,4 @@ Usage:
 [scanned_variables]: Img/fields_xref.JPG
 [classes]: Img/classes.JPG
 [feature_history]: https://github.com/igogo-x86/HexRaysPyTools/wiki/History
+[config]:Img/config1.jpg
