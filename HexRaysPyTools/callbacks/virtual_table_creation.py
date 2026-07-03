@@ -13,12 +13,11 @@ from HexRaysPyTools.core.temporary_structure import VirtualTable
 import HexRaysPyTools.core.const as Const
 from HexRaysPyTools.netnode import Netnode
 from ..settings import get_config
-from HexRaysPyTools.core.helper import GetXrefCnt
+from HexRaysPyTools.core.helper import GetXrefCnt, check_addr
 from HexRaysPyTools.log import Log
 
 logger = Log.get_logger()
 
-pure_names = ["___cxa_pure_virtual"]
 
 class CreateVtable(actions.Action):
     description = "Create Virtual Table"
@@ -106,18 +105,6 @@ class LocalTypes_JumpToFunc(actions.Action):
     def activate(self, ctx):
         ida_kernwin.jumpto(self.check(ctx.type_ref))
 
-
-def check_addr(addr, i, get_addr_val):
-    ret = False
-    if get_addr_val(addr) != 0:
-        if ida_bytes.is_func(ida_bytes.get_full_flags(get_addr_val(addr))):
-            if GetXrefCnt(addr) == 0 or i == 0:
-                ret = True
-        elif ida_bytes.has_name(ida_bytes.get_full_flags(get_addr_val(addr))):
-            if ida_name.get_name(get_addr_val(addr)) in pure_names:
-                if GetXrefCnt(addr) == 0 or i == 0:
-                    ret = True
-    return ret
 
 class DecompileCreateVtable(actions.HexRaysPopupAction):
     description = "Create Vtable"

@@ -9,7 +9,7 @@ import idc
 
 import HexRaysPyTools.core.helper as helper
 from HexRaysPyTools.callbacks import actions
-from HexRaysPyTools.core.helper import convert_name, GetXrefCnt
+from HexRaysPyTools.core.helper import check_addr, GetXrefCnt
 from HexRaysPyTools.netnode import Netnode
 import HexRaysPyTools.core.const as Const
 from HexRaysPyTools.settings import get_config
@@ -386,7 +386,7 @@ def bound_vtable(addr, vtable_struct_name = None, no_user = True):
         #     refinf = idaapi.refinfo_t(idaapi.REF_OFF16)
 
         offsets = []
-        while (get_addr_val(addr) != 0 and idaapi.is_func(ida_bytes.get_full_flags(get_addr_val(addr))) and (GetXrefCnt(addr) == 0 or i == 0)) is True:
+        while check_addr(addr, i, get_addr_val) is True:
             c = get_addr_val(addr)
             logger.debug("c = 0x%08X" % c)
             logger.debug("i = %d" % i)

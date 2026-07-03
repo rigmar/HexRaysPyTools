@@ -7,6 +7,7 @@ import ida_idp
 import ida_kernwin
 import ida_loader
 import ida_nalt
+import ida_name
 from ida_kernwin import PluginForm
 from idc import BADADDR
 
@@ -791,3 +792,16 @@ def struct_get_class_name(type_ord, udm):
         meth_name = meth_full_name
 
     return class_name, meth_name
+
+def check_addr(addr, i, get_addr_val):
+    pure_names = ["___cxa_pure_virtual"]
+    ret = False
+    if get_addr_val(addr) != 0:
+        if ida_bytes.is_func(ida_bytes.get_full_flags(get_addr_val(addr))):
+            if GetXrefCnt(addr) == 0 or i == 0:
+                ret = True
+        elif ida_bytes.has_name(ida_bytes.get_full_flags(get_addr_val(addr))):
+            if ida_name.get_name(get_addr_val(addr)) in pure_names:
+                if GetXrefCnt(addr) == 0 or i == 0:
+                    ret = True
+    return ret
