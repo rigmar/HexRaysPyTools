@@ -356,7 +356,7 @@ class BoundVtable(actions.Action):
             return ida_kernwin.AST_DISABLE
         return ida_kernwin.AST_DISABLE_FOR_WIDGET
 
-def bound_vtable(addr):
+def bound_vtable(addr, vtable_struct_name = None, no_user = True):
 
     def isMangled(n):
         if n.startswith("_ZN")or n.startswith("?"): return True
@@ -364,7 +364,10 @@ def bound_vtable(addr):
 
     # print "addr = 0x%08X" % addr
     vt_addr = addr
-    name = ida_kernwin.ask_str("", 0, "Please enter the vtable struct name")
+    if vtable_struct_name is None:
+        name = ida_kernwin.ask_str("", 0, "Please enter the vtable struct name")
+    else:
+        name = vtable_struct_name
     if name is None:
         return
     type_ord = ida_typeinf.get_type_ordinal(ida_typeinf.get_idati(), name)
@@ -397,11 +400,14 @@ def bound_vtable(addr):
             n[name] = offsets
             n[type_ord] = offsets
         elif tif.get_size()//ptr_size > len(offsets):
-            ida_kernwin.warning("Struct %s has more members than methods in vtbl at 0x%08X"%(name, vt_addr))
+            if not no_user:
+                ida_kernwin.warning("Struct %s has more members than methods in vtbl at 0x%08X"%(name, vt_addr))
         elif tif.get_size()//ptr_size < len(offsets):
-            ida_kernwin.warning("Vtbl at 0x%08X has more methods than members quantity in struct %s" % (vt_addr, name))
+            if not no_user:
+                ida_kernwin.warning("Vtbl at 0x%08X has more methods than members quantity in struct %s" % (vt_addr, name))
     else:
-        ida_kernwin.warning("Type %s not founded" % name)
+        if not no_user:
+            ida_kernwin.warning("Type %s not founded" % name)
     return name
 
 if get_config().get_opt("Virtual tables netnode", "BoundVtable"):

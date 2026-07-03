@@ -203,7 +203,9 @@ def create_vtable(addr, only_method=True):
             logger.error("Cant create udt tinfo for type '%s'"%vtbl_name)
             ida_kernwin.warning("Cant create udt tinfo for type '%s'"%vtbl_name)
             return
+    scan_and_create_vtable(addr, type_ordinal, vtbl_tif, vtbl_name, only_method, False)
 
+def scan_and_create_vtable(addr, type_ordinal, vtbl_tif, vtbl_name, only_method=True, no_user=True):
     i = 0
     n = Netnode("$ VTables")
     n[type_ordinal] = []
@@ -288,7 +290,8 @@ def create_vtable(addr, only_method=True):
     rc = vtbl_tif.set_numbered_type(ida_typeinf.get_idati(), type_ordinal, ida_typeinf.NTF_TYPE|ida_typeinf.NTF_REPLACE, vtbl_name)
     if rc != 0:
         logger.error("Cant set_numbered_type named '%s', rc = %d (%s)" % (vtbl_name, rc, ida_typeinf.tinfo_errstr(rc)))
-        ida_kernwin.warning("Cant set_numbered_type named '%s', rc = %d (%s)" % (vtbl_name, rc, ida_typeinf.tinfo_errstr(rc)))
+        if not no_user:
+            ida_kernwin.warning("Cant set_numbered_type named '%s', rc = %d (%s)" % (vtbl_name, rc, ida_typeinf.tinfo_errstr(rc)))
     return vtbl_name
 
 
