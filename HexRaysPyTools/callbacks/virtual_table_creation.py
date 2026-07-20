@@ -5,7 +5,6 @@ import ida_nalt
 import ida_name
 import ida_typeinf
 import idaapi
-from oslo_config.types import Boolean
 
 import HexRaysPyTools.core.helper as helper
 from . import actions
